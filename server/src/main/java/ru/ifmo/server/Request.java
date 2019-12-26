@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.net.Socket;
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -20,6 +21,7 @@ public class Request {
 
     Map<String, String> headers;
     Map<String, String> args;
+    private Map<String, String> cookies;
 
     Request(Socket socket) {
         this.socket = socket;
@@ -80,6 +82,27 @@ public class Request {
             return Collections.emptyMap();
 
         return Collections.unmodifiableMap(args);
+    }
+
+    void insertCookie(String name, String value) {
+        if (cookies == null) {
+            cookies = new HashMap<>();
+        }
+        cookies.put(name, value);
+    }
+
+    public Map<String, String> getCookies() {
+
+        if (getHeaders().get("Cookie") == null) {
+            return Collections.emptyMap();
+        }
+
+        return Collections.unmodifiableMap(cookies);
+    }
+
+    public String getCookieValue(String cookiename) {
+
+        return getCookies().get(cookiename);
     }
 
     @Override
