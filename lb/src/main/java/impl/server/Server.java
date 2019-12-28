@@ -83,7 +83,7 @@ public class Server implements IServer {
                         connectable(selectionKey);
                     } else if (selectionKey.isReadable()) {
                         readable(selectionKey);
-                    } else if (selectionKey.isWritable()) {
+                    } else if (selectionKey.isValid() && selectionKey.isWritable()) {
                         writable(selectionKey);
                     } else if (!selectionKey.isValid()) {
                         valid(selectionKey);
@@ -153,8 +153,9 @@ public class Server implements IServer {
                     idConnect.getInverseConnect().addBuf(sharedBuffer);
 
                     if(idConnect.getInverseConnect().getSelectionKey() == null) {
-                        SocketChannel writer = SocketChannel.open(config.getRandomIPserver("127.0.0.1:8080"));
+                        SocketChannel writer = SocketChannel.open();
                         writer.configureBlocking(false);
+                        writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
                         SelectionKey keyWriter = writer.register(this.selector, socketChannel.validOps() & ~SelectionKey.OP_READ, idConnect.getInverseConnect());
                         idConnect.getInverseConnect().setSelectionKey(keyWriter);
                     } else {
@@ -240,8 +241,9 @@ public class Server implements IServer {
 
             SocketChannel writer = null;
             try {
-                writer = SocketChannel.open(config.getRandomIPserver("127.0.0.1:8080"));
+                writer = SocketChannel.open();
                 writer.configureBlocking(false);
+                writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
                 writer.register(this.selector, writer.validOps(), key.attachment());
             }catch (IOException ex){
                 if (LOG.isErrorEnabled()) {
