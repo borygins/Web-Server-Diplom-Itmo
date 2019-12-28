@@ -75,5 +75,6 @@
     <modules>
         <module>server/</module>
         <module>example/</module>
+        <module>lb</module>
     </modules>
 </project>
