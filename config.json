@@ -1,1 +1,11 @@
-{"att":{},"groupServer":{"example1.host.ru":["185.9.147.48:80","185.9.147.49:80"],"example2.host.ru":["186.9.147.48:80","186.9.147.49:80"]},"IP_SERVER":"localhost:80","sizeBuf":1024,"countBuf":512,"countSelector":0,"ipserver":"localhost:80"}
+{
+  "att" : { },
+  "groupServer" : {
+    "example1.host.ru" : [ "185.9.147.48:80", "185.9.147.49:80" ],
+    "example2.host.ru" : [ "186.9.147.48:82", "186.9.147.49:80" ]
+  },
+  "sizeBuf" : 1024,
+  "countBuf" : 512,
+  "countSelector" : 0,
+  "ipserver" : "localhost:80"
+}

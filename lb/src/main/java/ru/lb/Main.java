@@ -1,6 +1,7 @@
 package ru.lb;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.IServer;
 import ru.lb.impl.config.Config;
@@ -42,6 +43,7 @@ public class Main {
                         try {
                             Files.createFile(path);
                             ObjectMapper objectMapper = new ObjectMapper();
+                            objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
                             objectMapper.writeValue(path.toFile(), config);
 
                         } catch (IOException e) {
