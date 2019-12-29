@@ -15,5 +15,6 @@ public interface IServer extends Runnable {
     void connectable(SelectionKey key);
     void close(SelectionKey key);
     void addConfig(IConfig config);
+    void newConnectToServer();
     void createBuf(int count, int bufSize);
 }

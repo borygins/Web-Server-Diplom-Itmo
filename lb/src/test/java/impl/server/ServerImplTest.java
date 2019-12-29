@@ -2,6 +2,7 @@ package impl.server;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.InterruptedIOException;
@@ -9,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-
+@Disabled
 class ServerImplTest {
 
     Thread server;
@@ -34,6 +35,7 @@ class ServerImplTest {
     }
 
     @Test
+    @Disabled
     public void testArrayList() throws InterruptedException {
         List<String> arr= new ArrayList<>();
         arr.add("str1");
@@ -41,6 +43,8 @@ class ServerImplTest {
         assertEquals("str1", arr.remove(id));
         assertNull((arr.size() > id) ? arr.remove(id) : null);
     }
+
+
 
     @AfterEach
     void tearDown() {

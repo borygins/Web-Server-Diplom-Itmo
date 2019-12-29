@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.nio.charset.Charset;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Server implements IServer {
 
@@ -26,6 +27,7 @@ public class Server implements IServer {
     private Long id;
     private ArrayList<ByteBuffer> buf;
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
+    private static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
 
     public Server(boolean startServer, int BUFFER_SIZE, IConfig config) {
         this.startServer = startServer;
@@ -36,8 +38,10 @@ public class Server implements IServer {
         try {
             if (!startServer) {
                 this.selector = Selector.open();
+                queSelector.offer(this.selector);
             } else {
                 this.selector = Selector.open();
+                queSelector.offer(this.selector);
                 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
                 serverSocketChannel.configureBlocking(false);
                 this.serverSocket = serverSocketChannel.socket();
@@ -91,7 +95,6 @@ public class Server implements IServer {
                     } else if (!selectionKey.isValid()) {
 //                        valid(selectionKey);
                     }
-
                 }
             }
         } catch (IOException e) {
@@ -106,7 +109,7 @@ public class Server implements IServer {
     public void acceptable(SelectionKey key) {
         Socket socket = null;
         SocketChannel client = null;
-
+        Selector selectorTemp = queSelector.peek();
         try {
             socket = this.serverSocket.accept();
 
@@ -115,7 +118,7 @@ public class Server implements IServer {
 
             client = socket.getChannel();
             client.configureBlocking(false);
-            client.register(this.selector, client.validOps() & ~SelectionKey.OP_WRITE);
+            client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Unable to use channel");
@@ -140,7 +143,7 @@ public class Server implements IServer {
         }
 
         ByteBuffer sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(this.BUFFER_SIZE);
-
+        sharedBuffer.clear();
         int bytes = -1;
         int countBuf = 3;
         try {
@@ -154,6 +157,7 @@ public class Server implements IServer {
 
                 if (writeData) {
                     idConnect.getInverseConnect().addBuf(sharedBuffer);
+                    sharedBuffer.flip();
 
                     if(idConnect.getInverseConnect().getSelectionKey() == null) {
                         SocketChannel writer = SocketChannel.open();
@@ -180,6 +184,7 @@ public class Server implements IServer {
 
                 if (sharedBuffer.position() == sharedBuffer.capacity()) {
                     idConnect.getInverseConnect().addBuf(sharedBuffer);
+                    sharedBuffer.flip();
                     sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(this.BUFFER_SIZE);
                 }
 
@@ -211,7 +216,7 @@ public class Server implements IServer {
             }
 
             try {
-                sharedBuffer.flip();
+//                sharedBuffer.flip();
 
                 while (sharedBuffer.hasRemaining()) {
                     byte[] b = new byte[1024];
@@ -221,7 +226,8 @@ public class Server implements IServer {
 
                 }
 
-                sharedBuffer.clear();
+//                sharedBuffer.clear();
+                sharedBuffer.rewind();
                 this.buf.add(sharedBuffer);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -240,7 +246,7 @@ public class Server implements IServer {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         try {
             socketChannel.finishConnect();
-            key.interestOps(socketChannel.validOps() & ~SelectionKey.OP_READ);
+            key.interestOps(socketChannel.validOps());
             if (LOG.isInfoEnabled())
                 LOG.info("Установлено соединение с севрером: " + socketChannel);
         } catch (IOException e) {
@@ -271,9 +277,9 @@ public class Server implements IServer {
     public void close(SelectionKey key) {
         try {
             SocketChannel sc = (SocketChannel) key.channel();
-            sc.close();
             if (LOG.isInfoEnabled())
                 LOG.error("Разорвано соединение с: " + sc.toString());
+            sc.close();
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Ошибка разрыва соединения: " + key.channel().toString());
@@ -285,6 +291,11 @@ public class Server implements IServer {
     @Override
     public void addConfig(IConfig config) {
         this.config = config;
+    }
+
+    @Override
+    public void newConnectToServer() {
+
     }
 
 
