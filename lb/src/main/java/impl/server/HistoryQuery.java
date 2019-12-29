@@ -12,9 +12,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class HistoryQuery implements IHistoryQuery {
     private final Map<InetSocketAddress, Map<String, InetSocketAddress>> mapTable;
     private IConfig config;
+    private Object monitor = new Object();
 
     public HistoryQuery() {
-        mapTable = new ConcurrentHashMap<>();
+        mapTable = new HashMap<>();
     }
 
     @Override
@@ -23,7 +24,7 @@ public class HistoryQuery implements IHistoryQuery {
     }
 
     @Override
-    public InetSocketAddress find(InetSocketAddress address, String host) {
+    public  InetSocketAddress find(InetSocketAddress address, String host) {
         InetSocketAddress out = null;
         Map<String, InetSocketAddress> hostMap = null;
         if(mapTable.containsKey(address)){
@@ -31,15 +32,19 @@ public class HistoryQuery implements IHistoryQuery {
             if(hostMap.containsKey(host)){
                 out =  hostMap.get(host);
             } else {
-                hostMap = new ConcurrentHashMap<>();
-                out =  config.getRandomIPserver(host);
-                hostMap.put(host,out);
+                synchronized (monitor) {
+                    hostMap = new HashMap<>();
+                    out = config.getRandomIPserver(host);
+                    hostMap.put(host, out);
+                }
             }
         } else {
-            hostMap = new ConcurrentHashMap<>();
-            out =  config.getRandomIPserver(host);
-            hostMap.put(host,out);
-            mapTable.put(address, hostMap);
+            synchronized (monitor) {
+                hostMap = new HashMap<>();
+                out = config.getRandomIPserver(host);
+                hostMap.put(host, out);
+                mapTable.put(address, hostMap);
+            }
         }
         return out;
     }

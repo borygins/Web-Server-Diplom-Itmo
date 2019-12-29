@@ -32,7 +32,7 @@ public class Server implements IServer {
     private final boolean startServer;
     private Long id;
     private ArrayList<ByteBuffer> buf;
-    private static final Logger LOG = LoggerFactory.getLogger(Server.class);
+    private final Logger LOG = LoggerFactory.getLogger(Server.class);
     private static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
     private static IHistoryQuery historyQuery;
 
@@ -104,8 +104,6 @@ public class Server implements IServer {
                         readable(selectionKey);
                     } else if (selectionKey.isValid() && selectionKey.isWritable()) {
                         writable(selectionKey);
-                    } else if (!selectionKey.isValid()) {
-//                        valid(selectionKey);
                     }
                 }
             }
@@ -182,7 +180,7 @@ public class Server implements IServer {
                         SocketChannel writer = SocketChannel.open();
                         writer.configureBlocking(false);
                         writer.connect(idConnect.getHostConnection());
-                        SelectionKey keyWriter = writer.register(this.selector, socketChannel.validOps(), idConnect.getInverseConnect());
+                        SelectionKey keyWriter = writer.register(key.selector(), socketChannel.validOps(), idConnect.getInverseConnect());
                         idConnect.getInverseConnect().setSelectionKey(keyWriter);
                     } else {
                         idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps() & ~SelectionKey.OP_READ);
@@ -280,7 +278,7 @@ public class Server implements IServer {
                 writer = SocketChannel.open();
                 writer.configureBlocking(false);
                 writer.connect(idConnect.getHostConnection());
-                writer.register(this.selector, writer.validOps(), idConnect);
+                writer.register(key.selector(), writer.validOps(), idConnect);
             }catch (IOException ex){
                 if (LOG.isErrorEnabled()) {
                     LOG.error("Err connect..." + key.channel().toString());
