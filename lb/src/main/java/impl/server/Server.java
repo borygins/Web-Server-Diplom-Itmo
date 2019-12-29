@@ -26,16 +26,20 @@ import java.util.regex.Pattern;
 public class Server implements IServer {
 
     private IConfig config;
-
     private Selector selector;
     private ServerSocket serverSocket;
     private final boolean startServer;
     private Long id;
     private ArrayList<ByteBuffer> buf;
-    private final Logger LOG = LoggerFactory.getLogger(Server.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Server.class);
     private static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
     private static IHistoryQuery historyQuery;
 
+    /**
+     * Конструктор.
+     * @param startServer Если true, то при вызове метода start() будет добавлен в селектор сервер.
+     * @param config конфигурация сервера.
+     */
     public Server(boolean startServer, IConfig config) {
         this.startServer = startServer;
         this.createBuf(config.getCountBuf(), config.getSizeBuf());
@@ -64,12 +68,19 @@ public class Server implements IServer {
 
     }
 
+    /**
+     * Метод для добавления реализации объекта хренияния истории соединения.
+     * @param newHistoryQuery реализация хранения истории соединий для подбора ip-адреса сервера для передачи данных.
+     */
     @Override
     public void setHistoryQuery(IHistoryQuery newHistoryQuery) {
         historyQuery = newHistoryQuery;
         historyQuery.setConfig(config);
     }
 
+    /**
+     * Метод создания селектора для обратотки каналов.
+     */
     @Override
     public void start() {
 
@@ -115,6 +126,10 @@ public class Server implements IServer {
         }
     }
 
+    /**
+     * Метод обработки входящих соединений.
+     * @param key ключ из выборки селектора
+     */
     @Override
     public void acceptable(SelectionKey key) {
         Selector selectorTemp = queSelector.poll();
@@ -125,11 +140,13 @@ public class Server implements IServer {
             if (LOG.isInfoEnabled())
                 LOG.info("Установлено соединение с клиентом: " + socket);
 
+            //Принимаем входящее соединение и снимаем блокировку
             SocketChannel client = socket.getChannel();
             client.configureBlocking(false);
             SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
-            IIdConnect idConnect = (IIdConnect) key.attachment();
 
+            //Проверяем на существование идентификатора. Если его нет, создаем.
+            IIdConnect idConnect = (IIdConnect) key.attachment();
             if (idConnect == null) {
                 idConnect = new IdConnect();
                 idConnect.setClient(true);
@@ -149,10 +166,16 @@ public class Server implements IServer {
 
     }
 
+    /**
+     * Метод обработки входящих данных.
+     * @param key ключ из выборки селектора
+     */
     @Override
     public void readable(SelectionKey key) {
+        //Получаем канал и его идентификатор
         SocketChannel socketChannel = (SocketChannel) key.channel();
         IIdConnect idConnect = (IIdConnect) key.attachment();
+
 
         ByteBuffer sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
         sharedBuffer.clear();
@@ -225,6 +248,10 @@ public class Server implements IServer {
         }
     }
 
+    /**
+     * Метод обработки исходящих соединений, в данном случае канал для соединения с сервером.
+     * @param key ключ из выборки селектора
+     */
     @Override
     public void writable(SelectionKey key) {
         SocketChannel socketChannel = (SocketChannel) key.channel();
@@ -256,6 +283,10 @@ public class Server implements IServer {
         }
     }
 
+    /**
+     * Метод обработки исходящих соединений, в данном случае канал для соединения с сервером.
+     * @param key ключ из выборки селектора
+     */
     @Override
     public void connectable(SelectionKey key)  {
         SocketChannel socketChannel = (SocketChannel) key.channel();
@@ -289,8 +320,13 @@ public class Server implements IServer {
 
     }
 
+    /**
+     * Метод закрытия соединения каналов
+     * @param key ключ из выборки селектора
+     */
     @Override
     public void close(SelectionKey key) {
+        //Закрываем соединение, вроде key.cancel(); делать не надо.
         try {
             SocketChannel sc = (SocketChannel) key.channel();
             if (LOG.isDebugEnabled())
@@ -305,16 +341,15 @@ public class Server implements IServer {
     }
 
     @Override
-    public void addConfig(IConfig config) {
+    public void setConfig(IConfig config) {
         this.config = config;
     }
 
-    @Override
-    public void newConnectToServer() {
-
-    }
-
-
+    /**
+     * Создание буфера буферов)))
+     * @param count Количество объектов буфера
+     * @param bufSize Размер буфера.
+     */
     @Override
     public void createBuf(int count, int bufSize) {
         this.buf = new ArrayList<>();
@@ -323,6 +358,9 @@ public class Server implements IServer {
         }
     }
 
+    /**
+     * @return Возвращается хост из заголовков.
+     */
     @Override
     public String getHostConnection(ByteBuffer buf) throws NotHostException {
         buf.flip();
@@ -336,13 +374,6 @@ public class Server implements IServer {
         }
 
         throw new NotHostException("Имя хоста не найдено в заголовках.");
-    }
-
-    private void increment() {
-        if (id == Long.MAX_VALUE) {
-            id = 0l;
-        }
-        id++;
     }
 
     @Override
