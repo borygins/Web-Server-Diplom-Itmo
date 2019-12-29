@@ -1,4 +1,4 @@
-package ru.lb.impl.config;
+package ru.lb.impl.exception;
 
 public class NotHostException extends Exception {
     public NotHostException(String message) {

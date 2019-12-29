@@ -1,7 +1,7 @@
 package ru.lb.design.server;
 
 import ru.lb.design.config.IConfig;
-import ru.lb.impl.config.NotHostException;
+import ru.lb.impl.exception.NotHostException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
