@@ -1,10 +1,9 @@
-package design.server;
+package ru.lb.design.server;
 
-import design.config.IConfig;
-import impl.config.NotHostException;
+import ru.lb.design.config.IConfig;
+import ru.lb.impl.config.NotHostException;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 

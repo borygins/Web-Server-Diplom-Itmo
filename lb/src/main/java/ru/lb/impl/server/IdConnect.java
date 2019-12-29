@@ -1,6 +1,6 @@
-package impl.server;
+package ru.lb.impl.server;
 
-import design.server.IIdConnect;
+import ru.lb.design.server.IIdConnect;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

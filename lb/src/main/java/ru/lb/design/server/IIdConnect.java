@@ -1,4 +1,4 @@
-package design.server;
+package ru.lb.design.server;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

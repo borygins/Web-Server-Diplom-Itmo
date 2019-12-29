@@ -1,11 +1,9 @@
-package impl.server;
+package ru.lb.impl.server;
 
-import design.config.IConfig;
-import design.server.IHistoryQuery;
+import ru.lb.design.config.IConfig;
+import ru.lb.design.server.IHistoryQuery;
 
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class HistoryQueryRandom implements IHistoryQuery {
 

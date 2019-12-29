@@ -1,17 +1,16 @@
-package impl.server;
+package ru.lb.impl.server;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import design.config.IConfig;
-import design.server.IServer;
-import impl.config.Config;
+import ru.lb.design.config.IConfig;
+import ru.lb.design.server.IServer;
+import ru.lb.impl.config.Config;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;

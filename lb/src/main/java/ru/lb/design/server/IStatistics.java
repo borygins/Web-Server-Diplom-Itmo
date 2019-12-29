@@ -1,4 +1,4 @@
-package design.server;
+package ru.lb.design.server;
 
 public interface IStatistics {
     int getActivConnectionBrowsers();

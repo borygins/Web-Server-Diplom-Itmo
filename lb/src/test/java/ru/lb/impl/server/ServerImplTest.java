@@ -1,14 +1,13 @@
-package impl.server;
+package ru.lb.impl.server;
 
-import design.config.IConfig;
-import design.server.IServer;
-import impl.config.Config;
+import ru.lb.design.config.IConfig;
+import ru.lb.design.server.IServer;
+import ru.lb.impl.config.Config;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;

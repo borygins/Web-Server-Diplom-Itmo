@@ -1,4 +1,4 @@
-package design.config;
+package ru.lb.design.config;
 
 import java.net.InetSocketAddress;
 
@@ -14,4 +14,7 @@ public interface IConfig {
     void setCountBuf(int countBuf);
     int getSizeBuf();
     void setSizeBuf(int sizeBuf);
+
+    void setCountSelector(int countSelector);
+    int getCountSelector();
 }

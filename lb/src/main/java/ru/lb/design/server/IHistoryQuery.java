@@ -1,10 +1,8 @@
-package design.server;
+package ru.lb.design.server;
 
-import design.config.IConfig;
+import ru.lb.design.config.IConfig;
 
 import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
 
 public interface IHistoryQuery {
 

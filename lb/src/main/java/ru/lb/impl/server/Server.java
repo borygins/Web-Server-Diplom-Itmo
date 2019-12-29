@@ -1,10 +1,10 @@
-package impl.server;
+package ru.lb.impl.server;
 
-import design.config.IConfig;
-import design.server.IHistoryQuery;
-import design.server.IIdConnect;
-import design.server.IServer;
-import impl.config.NotHostException;
+import ru.lb.design.config.IConfig;
+import ru.lb.design.server.IHistoryQuery;
+import ru.lb.design.server.IIdConnect;
+import ru.lb.design.server.IServer;
+import ru.lb.impl.config.NotHostException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;

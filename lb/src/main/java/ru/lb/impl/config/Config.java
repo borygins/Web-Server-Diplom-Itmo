@@ -1,16 +1,19 @@
-package impl.config;
+package ru.lb.impl.config;
 
-import design.config.IConfig;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import ru.lb.design.config.IConfig;
 
 import java.net.InetSocketAddress;
 import java.util.*;
 
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 public class Config implements IConfig {
     private final Map<String, String> att = new HashMap<>();
     private final Map<String, List<InetSocketAddress>> groupServer = new HashMap<>();
     private InetSocketAddress IP_SERVER;
     private int sizeBuf;
     private int countBuf;
+    private int countSelector;
 
     @Override
     public InetSocketAddress getIPserver() {
@@ -35,6 +38,16 @@ public class Config implements IConfig {
     @Override
     public void setSizeBuf(int sizeBuf) {
         this.sizeBuf = sizeBuf;
+    }
+
+    @Override
+    public void setCountSelector(int countSelector) {
+        this.countSelector = countSelector;
+    }
+
+    @Override
+    public int getCountSelector() {
+        return countSelector - 1;
     }
 
     @Override
