@@ -216,17 +216,9 @@ public class Server implements IServer {
             }
 
             try {
-//                sharedBuffer.flip();
-
                 while (sharedBuffer.hasRemaining()) {
-                    byte[] b = new byte[1024];
-                    sharedBuffer.get(b, 0, sharedBuffer.limit());
-                    out.append(new String(b, 0 , sharedBuffer.limit(), Charset.forName("UTF-8")));
                     socketChannel.write(sharedBuffer);
-
                 }
-
-//                sharedBuffer.clear();
                 sharedBuffer.rewind();
                 this.buf.add(sharedBuffer);
             } catch (IOException e) {

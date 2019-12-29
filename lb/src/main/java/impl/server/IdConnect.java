@@ -56,7 +56,7 @@ public class IdConnect implements IIdConnect {
 
     @Override
     public ByteBuffer getAndRemoveBuf() {
-        return  (this.buffer.size() > 0) ? this.buffer.remove(this.buffer.size() - 1) : null;
+        return  (this.buffer.size() > 0) ? this.buffer.remove(0) : null;
     }
 
 

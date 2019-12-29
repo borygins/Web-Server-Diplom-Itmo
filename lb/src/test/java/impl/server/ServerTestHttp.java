@@ -77,11 +77,12 @@ class ServerTestHttp {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(URL))
+                .setHeader("ValidHead","1245")
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        System.out.println(response.statusCode());
-        System.out.println(response.body());
+        assertEquals(200, response.statusCode());
+        assertEquals(true, response.body().toLowerCase().contains("validhead=1245"));
     }
 
     @AfterEach
