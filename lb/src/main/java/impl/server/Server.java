@@ -138,7 +138,7 @@ public class Server implements IServer {
             Socket socket = this.serverSocket.accept();
 
             if (LOG.isInfoEnabled())
-                LOG.info("Установлено соединение с клиентом: " + socket);
+                LOG.info("Установлено соединение с клиентом: " + socket + ", поток: " + Thread.currentThread().getName());
 
             //Принимаем входящее соединение и снимаем блокировку
             SocketChannel client = socket.getChannel();
@@ -155,6 +155,10 @@ public class Server implements IServer {
                 idConnect.getInverseConnect().setServer(true);
                 idConnect.setSelectionKey(selectionKeyClient);
                 selectionKeyClient.attach(idConnect);
+            }
+
+            if(!this.selector.equals(selectorTemp)){
+                selectorTemp.wakeup();
             }
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
