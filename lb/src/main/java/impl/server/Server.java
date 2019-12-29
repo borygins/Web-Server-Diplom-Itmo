@@ -5,12 +5,15 @@ import design.server.IIdConnect;
 import design.server.IServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.nio.charset.Charset;
 import java.util.*;
 
 public class Server implements IServer {
@@ -86,7 +89,7 @@ public class Server implements IServer {
                     } else if (selectionKey.isValid() && selectionKey.isWritable()) {
                         writable(selectionKey);
                     } else if (!selectionKey.isValid()) {
-                        valid(selectionKey);
+//                        valid(selectionKey);
                     }
 
                 }
@@ -108,17 +111,17 @@ public class Server implements IServer {
             socket = this.serverSocket.accept();
 
             if (LOG.isInfoEnabled())
-                LOG.info("Connection from: " + socket);
+                LOG.info("Установлено соединение с клиентом: " + socket);
 
             client = socket.getChannel();
             client.configureBlocking(false);
-            client.register(this.selector, SelectionKey.OP_READ);
+            client.register(this.selector, client.validOps() & ~SelectionKey.OP_WRITE);
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Unable to use channel");
                 e.printStackTrace();
             }
-            key.cancel();
+            this.close(key);
         }
 
     }
@@ -156,7 +159,7 @@ public class Server implements IServer {
                         SocketChannel writer = SocketChannel.open();
                         writer.configureBlocking(false);
                         writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
-                        SelectionKey keyWriter = writer.register(this.selector, socketChannel.validOps() & ~SelectionKey.OP_READ, idConnect.getInverseConnect());
+                        SelectionKey keyWriter = writer.register(this.selector, socketChannel.validOps(), idConnect.getInverseConnect());
                         idConnect.getInverseConnect().setSelectionKey(keyWriter);
                     } else {
                         idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps() & ~SelectionKey.OP_READ);
@@ -166,8 +169,11 @@ public class Server implements IServer {
                 }
 
                 if (closeSelectionKey) {
-                    key.cancel();
                     idConnect.getInverseConnect().setStopConnect(true);
+                    idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
+                    sharedBuffer.clear();
+                    this.buf.add(sharedBuffer);
+                    this.close(key);
                     break;
                 }
 
@@ -187,7 +193,7 @@ public class Server implements IServer {
                 LOG.error("Error writing back bytes");
                 e.printStackTrace();
             }
-            key.cancel();
+            this.close(key);
         }
     }
 
@@ -195,6 +201,7 @@ public class Server implements IServer {
     public void writable(SelectionKey key) {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         IIdConnect idConnect = (IIdConnect) key.attachment();
+        StringBuilder out = new StringBuilder();
         while (true) {
             ByteBuffer sharedBuffer = idConnect.getAndRemoveBuf();
 
@@ -207,8 +214,9 @@ public class Server implements IServer {
                 sharedBuffer.flip();
 
                 while (sharedBuffer.hasRemaining()) {
-//                    byte[] b = new byte[1024];
-//                    this.sharedBuffer.get(b, 0, bytes);
+                    byte[] b = new byte[1024];
+                    sharedBuffer.get(b, 0, sharedBuffer.limit());
+                    out.append(new String(b, 0 , sharedBuffer.limit(), Charset.forName("UTF-8")));
                     socketChannel.write(sharedBuffer);
 
                 }
@@ -222,8 +230,8 @@ public class Server implements IServer {
         }
 
         if (idConnect.isStopConnect()) {
-            key.cancel();
             idConnect.getInverseConnect().setStopConnect(true);
+            this.close(key);
         }
     }
 
@@ -232,15 +240,19 @@ public class Server implements IServer {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         try {
             socketChannel.finishConnect();
+            key.interestOps(socketChannel.validOps() & ~SelectionKey.OP_READ);
+            if (LOG.isInfoEnabled())
+                LOG.info("Установлено соединение с севрером: " + socketChannel);
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Err connect..." + key.channel().toString());
                 e.printStackTrace();
             }
-            key.cancel();
+            this.close(key);
 
             SocketChannel writer = null;
             try {
+//                ((InetSocketAddress)socketChannel.getRemoteAddress()).getAddress().getHostAddress()
                 writer = SocketChannel.open();
                 writer.configureBlocking(false);
                 writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
@@ -251,23 +263,22 @@ public class Server implements IServer {
                     e.printStackTrace();
                 }
             }
-
-            return;
         }
 
-        key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
     }
 
     @Override
-    public void valid(SelectionKey key) {
+    public void close(SelectionKey key) {
         try {
-            ((SocketChannel) key.channel()).close();
+            SocketChannel sc = (SocketChannel) key.channel();
+            sc.close();
+            if (LOG.isInfoEnabled())
+                LOG.error("Разорвано соединение с: " + sc.toString());
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
-                LOG.error("Err closing..." + key.channel().toString());
+                LOG.error("Ошибка разрыва соединения: " + key.channel().toString());
                 e.printStackTrace();
             }
-            key.cancel();
         }
     }
 

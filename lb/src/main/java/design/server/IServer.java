@@ -13,7 +13,7 @@ public interface IServer extends Runnable {
     void readable(SelectionKey key);
     void writable(SelectionKey key) throws IOException;
     void connectable(SelectionKey key);
-    void valid(SelectionKey key);
+    void close(SelectionKey key);
     void addConfig(IConfig config);
     void createBuf(int count, int bufSize);
 }
