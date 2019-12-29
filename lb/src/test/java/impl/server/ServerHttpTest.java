@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import design.config.IConfig;
+import design.server.IServer;
 import impl.config.Config;
 import org.junit.jupiter.api.*;
 
@@ -19,7 +20,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
-class ServerTestHttp {
+class ServerHttpTest {
 
     private HttpServer httpServer;
     private Thread lbServer;
@@ -61,7 +62,14 @@ class ServerTestHttp {
         lbServer = new Thread(new Runnable() {
             @Override
             public void run() {
-                (new Server(true, 1024, config)).start();
+                IConfig config = new Config();
+                config.addIPserver("127.0.0.1:8080", new InetSocketAddress("185.9.147.48", 80));
+                config.setIPserver(new InetSocketAddress("localhost", 80));
+                config.setCountBuf(512);
+                config.setSizeBuf(1024);
+                IServer server = new Server(true,  config);
+                server.setHistoryQuery(new HistoryQuery());
+                server.start();
             }});
         lbServer.start();
         Thread.sleep(5000);

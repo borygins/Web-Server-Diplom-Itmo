@@ -1,26 +1,32 @@
 package impl.server;
 
 import design.config.IConfig;
+import design.server.IHistoryQuery;
 import design.server.IIdConnect;
 import design.server.IServer;
+import impl.config.NotHostException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
-import java.nio.charset.Charset;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Server implements IServer {
 
     private IConfig config;
-    private final int BUFFER_SIZE;
+
     private Selector selector;
     private ServerSocket serverSocket;
     private final boolean startServer;
@@ -28,11 +34,11 @@ public class Server implements IServer {
     private ArrayList<ByteBuffer> buf;
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
     private static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
+    private static IHistoryQuery historyQuery;
 
-    public Server(boolean startServer, int BUFFER_SIZE, IConfig config) {
+    public Server(boolean startServer, IConfig config) {
         this.startServer = startServer;
-        this.BUFFER_SIZE = BUFFER_SIZE;
-        this.createBuf(512, this.BUFFER_SIZE);
+        this.createBuf(config.getCountBuf(), config.getSizeBuf());
         this.config = config;
 
         try {
@@ -56,6 +62,12 @@ public class Server implements IServer {
                 LOG.debug("Unable to setup environment");
         }
 
+    }
+
+    @Override
+    public void setHistoryQuery(IHistoryQuery newHistoryQuery) {
+        historyQuery = newHistoryQuery;
+        historyQuery.setConfig(config);
     }
 
     @Override
@@ -107,18 +119,28 @@ public class Server implements IServer {
 
     @Override
     public void acceptable(SelectionKey key) {
-        Socket socket = null;
-        SocketChannel client = null;
-        Selector selectorTemp = queSelector.peek();
+        Selector selectorTemp = queSelector.poll();
+        queSelector.offer(selectorTemp);
         try {
-            socket = this.serverSocket.accept();
+            Socket socket = this.serverSocket.accept();
 
             if (LOG.isInfoEnabled())
                 LOG.info("Установлено соединение с клиентом: " + socket);
 
-            client = socket.getChannel();
+            SocketChannel client = socket.getChannel();
             client.configureBlocking(false);
-            client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
+            SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
+            IIdConnect idConnect = (IIdConnect) key.attachment();
+
+            if (idConnect == null) {
+                idConnect = new IdConnect();
+                idConnect.setClient(true);
+                idConnect.setInverseConnect(new IdConnect());
+                idConnect.getInverseConnect().setInverseConnect(idConnect);
+                idConnect.getInverseConnect().setServer(true);
+                idConnect.setSelectionKey(selectionKeyClient);
+                selectionKeyClient.attach(idConnect);
+            }
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Unable to use channel");
@@ -134,15 +156,7 @@ public class Server implements IServer {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         IIdConnect idConnect = (IIdConnect) key.attachment();
 
-        if (idConnect == null) {
-            idConnect = new IdConnect();
-            idConnect.setInverseConnect(new IdConnect());
-            idConnect.getInverseConnect().setInverseConnect(idConnect);
-            idConnect.setSelectionKey(key);
-            key.attach(idConnect);
-        }
-
-        ByteBuffer sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(this.BUFFER_SIZE);
+        ByteBuffer sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
         sharedBuffer.clear();
         int bytes = -1;
         int countBuf = 3;
@@ -151,6 +165,11 @@ public class Server implements IServer {
             while (true) {
 
                 bytes = socketChannel.read(sharedBuffer);
+
+                if(idConnect.isClient() && idConnect.getHostConnection() == null) {
+                    idConnect.setHostConnection(historyQuery.find((InetSocketAddress) socketChannel.getRemoteAddress(),this.getHostConnection(sharedBuffer)));
+                    idConnect.getInverseConnect().setHostConnection(idConnect.getHostConnection());
+                }
 
                 boolean writeData = (countBuf == 0) | (sharedBuffer.position() != 0 & bytes < 1 & sharedBuffer.position() != sharedBuffer.capacity());
                 boolean closeSelectionKey = (bytes == -1);
@@ -162,7 +181,7 @@ public class Server implements IServer {
                     if(idConnect.getInverseConnect().getSelectionKey() == null) {
                         SocketChannel writer = SocketChannel.open();
                         writer.configureBlocking(false);
-                        writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
+                        writer.connect(idConnect.getHostConnection());
                         SelectionKey keyWriter = writer.register(this.selector, socketChannel.validOps(), idConnect.getInverseConnect());
                         idConnect.getInverseConnect().setSelectionKey(keyWriter);
                     } else {
@@ -185,7 +204,7 @@ public class Server implements IServer {
                 if (sharedBuffer.position() == sharedBuffer.capacity()) {
                     idConnect.getInverseConnect().addBuf(sharedBuffer);
                     sharedBuffer.flip();
-                    sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(this.BUFFER_SIZE);
+                    sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
                 }
 
                 countBuf--;
@@ -196,6 +215,12 @@ public class Server implements IServer {
         } catch (IOException | RuntimeException e) {
             if (LOG.isErrorEnabled()) {
                 LOG.error("Error writing back bytes");
+                e.printStackTrace();
+            }
+            this.close(key);
+        } catch ( NotHostException e){
+            if (LOG.isErrorEnabled()) {
+                LOG.error("Хост не был найден в заголовках.");
                 e.printStackTrace();
             }
             this.close(key);
@@ -236,6 +261,8 @@ public class Server implements IServer {
     @Override
     public void connectable(SelectionKey key)  {
         SocketChannel socketChannel = (SocketChannel) key.channel();
+        IIdConnect idConnect = (IIdConnect) key.attachment();
+
         try {
             socketChannel.finishConnect();
             key.interestOps(socketChannel.validOps());
@@ -250,11 +277,10 @@ public class Server implements IServer {
 
             SocketChannel writer = null;
             try {
-//                ((InetSocketAddress)socketChannel.getRemoteAddress()).getAddress().getHostAddress()
                 writer = SocketChannel.open();
                 writer.configureBlocking(false);
-                writer.connect(config.getRandomIPserver("127.0.0.1:8080"));
-                writer.register(this.selector, writer.validOps(), key.attachment());
+                writer.connect(idConnect.getHostConnection());
+                writer.register(this.selector, writer.validOps(), idConnect);
             }catch (IOException ex){
                 if (LOG.isErrorEnabled()) {
                     LOG.error("Err connect..." + key.channel().toString());
@@ -269,8 +295,8 @@ public class Server implements IServer {
     public void close(SelectionKey key) {
         try {
             SocketChannel sc = (SocketChannel) key.channel();
-            if (LOG.isInfoEnabled())
-                LOG.error("Разорвано соединение с: " + sc.toString());
+            if (LOG.isDebugEnabled())
+                LOG.debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: "+ Thread.currentThread().getName());
             sc.close();
         } catch (IOException e) {
             if (LOG.isErrorEnabled()) {
@@ -297,6 +323,21 @@ public class Server implements IServer {
         for (int i = 0; i < count; i++) {
             this.buf.add(ByteBuffer.allocate(bufSize));
         }
+    }
+
+    @Override
+    public String getHostConnection(ByteBuffer buf) throws NotHostException {
+        buf.flip();
+        byte[] b = new byte[config.getSizeBuf()];
+        buf.get(b, 0, buf.limit());
+        Pattern pattern = Pattern.compile("\\r\\nHost: (.+)(:|\\r\\n)");
+        Matcher matcher = pattern.matcher(new String(b, 0, buf.limit()));
+        if (matcher.find())
+        {
+            return  matcher.group(1);
+        }
+
+        throw new NotHostException("Имя хоста не найдено в заголовках.");
     }
 
     private void increment() {

@@ -9,4 +9,9 @@ public interface IConfig {
     void addIPserver(String group, InetSocketAddress value);
     void setIPserver(InetSocketAddress value);
     InetSocketAddress getIPserver();
+
+    int getCountBuf();
+    void setCountBuf(int countBuf);
+    int getSizeBuf();
+    void setSizeBuf(int sizeBuf);
 }

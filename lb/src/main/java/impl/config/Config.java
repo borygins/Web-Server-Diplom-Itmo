@@ -9,10 +9,32 @@ public class Config implements IConfig {
     private final Map<String, String> att = new HashMap<>();
     private final Map<String, List<InetSocketAddress>> groupServer = new HashMap<>();
     private InetSocketAddress IP_SERVER;
+    private int sizeBuf;
+    private int countBuf;
 
     @Override
     public InetSocketAddress getIPserver() {
         return IP_SERVER;
+    }
+
+    @Override
+    public int getCountBuf() {
+        return countBuf;
+    }
+
+    @Override
+    public void setCountBuf(int countBuf) {
+        this.countBuf = countBuf;
+    }
+
+    @Override
+    public int getSizeBuf() {
+        return sizeBuf;
+    }
+
+    @Override
+    public void setSizeBuf(int sizeBuf) {
+        this.sizeBuf = sizeBuf;
     }
 
     @Override

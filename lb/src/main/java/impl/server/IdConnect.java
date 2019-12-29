@@ -2,6 +2,7 @@ package impl.server;
 
 import design.server.IIdConnect;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
@@ -13,9 +14,32 @@ public class IdConnect implements IIdConnect {
     private IIdConnect connect;
     private boolean stopConnect = false;
     private SelectionKey key;
+    private InetSocketAddress host = null;
+    private boolean client = false;
+    private boolean server = false;
 
     public IdConnect() {
 
+    }
+
+    @Override
+    public void setServer(boolean server) {
+        this.server = server;
+    }
+
+    @Override
+    public void setClient(boolean client) {
+        this.client = client;
+    }
+
+    @Override
+    public boolean isClient() {
+        return client;
+    }
+
+    @Override
+    public boolean isServer() {
+        return server;
     }
 
     @Override
@@ -26,6 +50,16 @@ public class IdConnect implements IIdConnect {
     @Override
     public SelectionKey getSelectionKey() {
         return this.key;
+    }
+
+    @Override
+    public void setHostConnection(InetSocketAddress host) {
+        this.host = host;
+    }
+
+    @Override
+    public InetSocketAddress getHostConnection() {
+        return this.host;
     }
 
     @Override

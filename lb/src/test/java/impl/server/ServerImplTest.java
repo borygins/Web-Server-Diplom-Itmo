@@ -1,11 +1,15 @@
 package impl.server;
 
+import design.config.IConfig;
+import design.server.IServer;
+import impl.config.Config;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.InterruptedIOException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +24,15 @@ class ServerImplTest {
         server = new Thread(new Runnable() {
             @Override
             public void run() {
-                    (new Server(true, 1024, null)).start();
+                IConfig config = new Config();
+                config.addIPserver("127.0.0.1:8080", new InetSocketAddress("185.9.147.48", 80));
+                config.setIPserver(new InetSocketAddress("localhost", 80));
+                config.setCountBuf(512);
+                config.setSizeBuf(1024);
+
+                IServer server = new Server(true,  config);
+                server.setHistoryQuery(new HistoryQuery());
+                server.start();
             }});
         server.start();
     }

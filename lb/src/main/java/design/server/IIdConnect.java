@@ -1,5 +1,6 @@
 package design.server;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.util.List;
@@ -18,4 +19,13 @@ public interface IIdConnect {
 
     void setSelectionKey(SelectionKey key);
     SelectionKey getSelectionKey();
+
+    void setHostConnection(InetSocketAddress host);
+    InetSocketAddress getHostConnection();
+
+    void setServer(boolean server);
+    void setClient(boolean client);
+
+    boolean isClient();
+    boolean isServer();
 }
