@@ -39,6 +39,7 @@ public class Main {
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);
                         config.setCountSelector(1);
+                        config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
                         try {
                             Files.createFile(path);

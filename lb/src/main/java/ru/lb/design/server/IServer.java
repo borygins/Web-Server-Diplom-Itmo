@@ -17,5 +17,4 @@ public interface IServer extends Runnable {
     void setConfig(IConfig config);
     void createBuf(int count, int bufSize);
     void setHistoryQuery(IHistoryQuery newHistoryQuery);
-    String getHostConnection(ByteBuffer buf) throws NotHostException;
 }

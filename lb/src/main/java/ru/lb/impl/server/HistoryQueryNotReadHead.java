@@ -1,18 +1,17 @@
 package ru.lb.impl.server;
 
 import ru.lb.design.config.IConfig;
-import ru.lb.design.server.IHistoryQuery;
 import ru.lb.impl.exception.NotHostException;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
-public class HistoryQueryRandom extends HistoryQuery {
+public class HistoryQueryNotReadHead extends HistoryQuery {
 
     private IConfig config;
     private InetSocketAddress last;
 
-    public HistoryQueryRandom() {
+    public HistoryQueryNotReadHead() {
 
     }
 
@@ -28,13 +27,6 @@ public class HistoryQueryRandom extends HistoryQuery {
 
     @Override
     public synchronized InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) throws NotHostException {
-        InetSocketAddress out;
-        while (true) {
-            out = config.getRandomIPserver();
-            if(!out.equals(last))
-                break;
-        }
-        last = out;
-        return out;
+        return config.getRandomIPserver();
     }
 }
