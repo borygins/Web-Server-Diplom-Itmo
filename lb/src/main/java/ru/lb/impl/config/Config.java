@@ -1,6 +1,7 @@
 package ru.lb.impl.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import ru.lb.design.config.IConfig;
 
 import java.net.InetSocketAddress;
@@ -84,6 +85,7 @@ public class Config implements IConfig {
         return ip.get(random.nextInt(ip.size()));
     }
 
+    @JsonIgnore
     @Override
     public InetSocketAddress getRandomIPserver() {
         if(firstGroup == null)
@@ -115,6 +117,10 @@ public class Config implements IConfig {
     public void setPatternReadHeadHost(String pattern) {
         this.patternReadHeadHost = pattern;
         this.pattern = Pattern.compile(this.patternReadHeadHost);
+    }
+
+    public String getPatternReadHeadHost() {
+        return patternReadHeadHost;
     }
 
     @Override

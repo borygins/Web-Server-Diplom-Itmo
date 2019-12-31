@@ -36,16 +36,23 @@ public class Server extends AServer {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         IIdConnect idConnect = (IIdConnect) key.attachment();
 
-        ByteBuffer sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
-        sharedBuffer.clear();
+        ByteBuffer sharedBuffer = null;
         int bytes = -1;
         int countBuf = 3;
-        ServerReadStatus status = ServerReadStatus.CONTINUE;
+        ServerReadStatus status = ServerReadStatus.NEW_BUF;
+
         try {
 
             while (status != ServerReadStatus.EXIT) {
+                if(status == ServerReadStatus.NEW_BUF) {
+                    sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+                    sharedBuffer.clear();
+                }
+
                 bytes = socketChannel.read(sharedBuffer);
-                status = this.read(key, idConnect, socketChannel,sharedBuffer, countBuf, bytes);
+
+                status = this.read(key, idConnect, socketChannel,sharedBuffer, countBuf--, bytes);
+
             }
 
         } catch (IOException | RuntimeException e) {
@@ -53,12 +60,16 @@ public class Server extends AServer {
                 LOG.error("Error writing back bytes");
                 e.printStackTrace();
             }
+            this.buf.add(sharedBuffer);
+            sharedBuffer.clear();
             this.close(key);
         } catch ( NotHostException e){
             if (LOG.isErrorEnabled()) {
                 LOG.error("Хост не был найден в заголовках.");
                 e.printStackTrace();
             }
+            this.buf.add(sharedBuffer);
+            sharedBuffer.clear();
             this.close(key);
         }
     }
@@ -73,7 +84,12 @@ public class Server extends AServer {
         IIdConnect idConnect = (IIdConnect) key.attachment();
         ServerWriteStatus writeStatus = ServerWriteStatus.CONTINUE;
         while (writeStatus != ServerWriteStatus.EXIT) {
-            writeStatus = this.write(key, idConnect, socketChannel);
+            ByteBuffer sharedBuffer = idConnect.getAndRemoveBuf();
+
+            if(sharedBuffer != null)
+                System.out.println(new String(sharedBuffer.array(), 0, sharedBuffer.limit()));
+
+            writeStatus = this.write(key, sharedBuffer, socketChannel);
         }
 
         if (idConnect.isStopConnect()) {

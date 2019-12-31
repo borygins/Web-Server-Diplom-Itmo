@@ -178,6 +178,7 @@ public abstract class AServer implements IServer {
     public abstract void readable(SelectionKey key);
 
     protected ServerReadStatus read(SelectionKey key, IIdConnect idConnect, SocketChannel socketChannel, ByteBuffer sharedBuffer, int countBuf, int bytes) throws IOException, NotHostException {
+
         if(idConnect.isClient() && idConnect.getHostConnection() == null) {
             idConnect.setHostConnection(historyQuery.find((InetSocketAddress) socketChannel.getRemoteAddress(), sharedBuffer));
             idConnect.getInverseConnect().setHostConnection(idConnect.getHostConnection());
@@ -205,21 +206,19 @@ public abstract class AServer implements IServer {
 
         if (closeSelectionKey) {
             idConnect.getInverseConnect().setStopConnect(true);
-            idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
+            if(idConnect.getInverseConnect() != null && idConnect.getInverseConnect().getSelectionKey() != null)
+                idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
             sharedBuffer.clear();
             this.buf.add(sharedBuffer);
             this.close(key);
             return ServerReadStatus.EXIT;
         }
 
-
         if (sharedBuffer.position() == sharedBuffer.capacity()) {
             idConnect.getInverseConnect().addBuf(sharedBuffer);
             sharedBuffer.flip();
-            sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+            return ServerReadStatus.NEW_BUF;
         }
-
-        countBuf--;
 
         return ServerReadStatus.CONTINUE;
     }
@@ -231,8 +230,7 @@ public abstract class AServer implements IServer {
     @Override
     public abstract void writable(SelectionKey key);
 
-    protected ServerWriteStatus write(SelectionKey key, IIdConnect idConnect, SocketChannel socketChannel){
-        ByteBuffer sharedBuffer = idConnect.getAndRemoveBuf();
+    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel){
         if(sharedBuffer == null){
             key.interestOps(socketChannel.validOps() & ~SelectionKey.OP_WRITE);
             return ServerWriteStatus.EXIT;

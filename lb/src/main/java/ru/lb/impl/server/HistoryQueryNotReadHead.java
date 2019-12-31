@@ -26,7 +26,7 @@ public class HistoryQueryNotReadHead extends HistoryQuery {
     }
 
     @Override
-    public synchronized InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) throws NotHostException {
+    public synchronized InetSocketAddress find(InetSocketAddress address, ByteBuffer buf)  {
         return config.getRandomIPserver();
     }
 }

@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 
 public class HistoryQuery implements IHistoryQuery {
-    private final Map<InetSocketAddress, Map<String, InetSocketAddress>> mapTable;
+    private final Map<String, Map<String, InetSocketAddress>> mapTable;
     private IConfig config;
     private Object monitor = new Object();
 
@@ -46,8 +46,8 @@ public class HistoryQuery implements IHistoryQuery {
         String host = getHostConnection(buf);
         InetSocketAddress out = null;
         Map<String, InetSocketAddress> hostMap = null;
-        if(mapTable.containsKey(address)){
-            hostMap = mapTable.get(address);
+        if(mapTable.containsKey(address.getAddress().getHostAddress())){
+            hostMap = mapTable.get(address.getAddress().getHostAddress());
             if(hostMap.containsKey(host)){
                 out =  hostMap.get(host);
             } else {
@@ -62,7 +62,7 @@ public class HistoryQuery implements IHistoryQuery {
                 hostMap = new HashMap<>();
                 out = config.getRandomIPserver(host);
                 hostMap.put(host, out);
-                mapTable.put(address, hostMap);
+                mapTable.put(address.getAddress().getHostAddress(), hostMap);
             }
         }
         return out;

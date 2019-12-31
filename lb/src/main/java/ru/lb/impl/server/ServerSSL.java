@@ -121,7 +121,7 @@ public class ServerSSL extends AServer {
             this.doHandshake(socketChannel, engine, myNetData, peerNetData);
 
             while (writeStatus != ServerWriteStatus.EXIT) {
-                writeStatus = this.write(key, idConnect, socketChannel);
+                writeStatus = this.write(key, idConnect.getAndRemoveBuf(), socketChannel);
             }
 
             if (idConnect.isStopConnect()) {

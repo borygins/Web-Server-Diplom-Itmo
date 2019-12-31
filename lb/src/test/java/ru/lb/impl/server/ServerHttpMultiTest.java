@@ -37,7 +37,8 @@ class ServerHttpMultiTest {
         IConfig config = new Config();
         config.setCountBuf(512);
         config.setSizeBuf(1024);
-        config.setIPserver(new InetSocketAddress("localhost", 80));
+        config.setIPserver(new InetSocketAddress("localhost", 443));
+        config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
         for (int i = 0; i < 10; i++) {
             HttpServer httpServer = HttpServer.create();
@@ -52,7 +53,7 @@ class ServerHttpMultiTest {
             @Override
             public void run() {
                 IServer server = new Server(true, config);
-                server.setHistoryQuery(new HistoryQueryRandom());
+                server.setHistoryQuery(new HistoryQuery());
                 server.start();
             }
         });
@@ -104,6 +105,7 @@ class ServerHttpMultiTest {
 
     @Test
     void testQuery() throws IOException, InterruptedException {
+
         HttpClient client = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)

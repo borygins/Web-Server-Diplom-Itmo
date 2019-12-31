@@ -31,10 +31,8 @@ public class Main {
                 switch (arg) {
                     case "createConfigFile":
                         config = new Config();
-                        config.addIPserver("example1.host.ru", new InetSocketAddress("185.9.147.48", 80));
-                        config.addIPserver("example1.host.ru", new InetSocketAddress("185.9.147.49", 80));
-                        config.addIPserver("example2.host.ru", new InetSocketAddress("186.9.147.48", 80));
-                        config.addIPserver("example2.host.ru", new InetSocketAddress("186.9.147.49", 80));
+                        config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
+                        config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
                         config.setIPserver(new InetSocketAddress("localhost", 80));
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);

@@ -27,7 +27,7 @@ public class HistoryQueryRandom extends HistoryQuery {
     }
 
     @Override
-    public synchronized InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) throws NotHostException {
+    public synchronized InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) {
         InetSocketAddress out;
         while (true) {
             out = config.getRandomIPserver();
