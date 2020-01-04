@@ -33,7 +33,7 @@ public class Main {
                         config = new Config();
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
-                        config.setIPserver(new InetSocketAddress("localhost", 80));
+                        config.setIPserver(new InetSocketAddress("localhost", 443));
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);
                         config.setCountSelector(1);
