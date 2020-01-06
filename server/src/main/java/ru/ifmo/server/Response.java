@@ -25,4 +25,12 @@ public class Response {
             throw new ServerException("Cannot get output stream", e);
         }
     }
+
+    public OutputStream getOutputStreamBuffer() {
+        return null;
+    }
+
+    public void setContentType(String mime) {
+
+    }
 }

@@ -4,14 +4,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.ifmo.server.util.Utils;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,11 +19,11 @@ import static ru.ifmo.server.Http.*;
 /**
  * Ifmo Web Server.
  * <p>
- *     To start server use {@link #start(ServerConfig)} and register at least
- *     one handler to process HTTP requests.
- *     Usage example:
- *     <pre>
- *{@code
+ * To start server use {@link #start(ServerConfig)} and register at least
+ * one handler to process HTTP requests.
+ * Usage example:
+ * <pre>
+ * {@code
  * ServerConfig config = new ServerConfig()
  *      .addHandler("/index", new Handler() {
  *          public void handle(Request request, Response response) throws Exception {
@@ -40,8 +38,9 @@ import static ru.ifmo.server.Http.*;
  *     </pre>
  * </p>
  * <p>
- *     To stop the server use {@link #stop()} or {@link #close()} methods.
+ * To stop the server use {@link #stop()} or {@link #close()} methods.
  * </p>
+ *
  * @see ServerConfig
  */
 public class Server implements Closeable {
@@ -89,8 +88,7 @@ public class Server implements Closeable {
 
             LOG.info("Server started on port: {}", config.getPort());
             return server;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
     }
@@ -126,8 +124,7 @@ public class Server implements Closeable {
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Parsed request: {}", req);
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             if (LOG.isDebugEnabled())
                 LOG.error("Malformed URL", e);
 
@@ -135,8 +132,7 @@ public class Server implements Closeable {
                     sock.getOutputStream());
 
             return;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOG.error("Error parsing request", e);
 
             respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
@@ -158,8 +154,7 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
 
@@ -167,9 +162,11 @@ public class Server implements Closeable {
                         sock.getOutputStream());
             }
         }
-        else
-            respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
-                    sock.getOutputStream());
+        else {
+            String path = "";
+            findPath(req, resp, sock, path);
+
+        }
     }
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
@@ -225,8 +222,7 @@ public class Server implements Closeable {
                     key = query.substring(start, i);
 
                     start = i + 1;
-                }
-                else if (key != null && (query.charAt(i) == AMP || last)) {
+                } else if (key != null && (query.charAt(i) == AMP || last)) {
                     req.addArgument(key, query.substring(start, last ? i + 1 : i));
 
                     key = null;
@@ -305,12 +301,50 @@ public class Server implements Closeable {
                     sock.setSoTimeout(config.getSocketTimeout());
 
                     processConnection(sock);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     if (!Thread.currentThread().isInterrupted())
                         LOG.error("Error accepting connection", e);
                 }
             }
         }
+    }
+
+    private String findMime(File file) {
+        if (file.getName().endsWith(".txt")) {
+            return Http.MIME_TEXT_PLAIN;
+        } else if (file.getName().endsWith(".html") || file.getName().endsWith(".htm")) {
+            return Http.MIME_TEXT_HTML;
+        } else if (file.getName().endsWith(".js")) {
+            return Http.MIME_APPLICATION_JS;
+        } else if (file.getName().endsWith(".gif")) {
+            return Http.MIME_IMAGE_GIF;
+        } else if (file.getName().endsWith(".png")) {
+            return Http.MIME_IMAGE_PNG;
+        } else if (file.getName().endsWith(".jpeg") || file.getName().endsWith(".jpg")) {
+            return Http.MIME_IMAGE_JPEG;
+        } else if (file.getName().endsWith(".pdf")) {
+            return Http.MIME_APPLICATION_PDF;
+        } else if (file.getName().endsWith(".docx") || file.getName().endsWith(".doc")) {
+            return Http.MIME_APPLICATION_MSWORD;
+        } else if (file.getName().endsWith(".xls")) {
+            return MIME_APPLICATION_MSEXCEL;
+        }
+        return MIME_BINARY;
+    }
+    // were implement findPath? Line 165?
+    private void findPath(Request req, Response resp, Socket sock, String path) throws IOException {
+        File workDirectory = config.getWorkDirectory();
+        File file;
+        if (workDirectory != null) {
+            (file = findFile(path, workDirectory)).exists();
+            resp.setContentType(findMime(file));
+        } else respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
+                sock.getOutputStream());
+    }
+
+    private File findFile(String path, File workDirectory) {
+        String dirPath = workDirectory.getAbsolutePath();
+        String filePath = dirPath + path;
+        return new File(filePath);
     }
 }
