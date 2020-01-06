@@ -4,6 +4,8 @@ import ru.ifmo.server.*;
 
 import java.awt.*;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -18,7 +20,15 @@ public class SimpleExample {
         // Define config with request handlers
         ServerConfig config = new ServerConfig()
                 .addHandler("/info.html", printHandler)
-                .addHandler("/info", printHandler);
+                .addHandler("/info", printHandler)
+                .addHandler("/index", new Handler() {
+                    @Override
+                    public void handle(Request request, Response response) throws Exception {
+                        Writer writer = new OutputStreamWriter(response.getOutputStream());
+                        writer.write(Http.OK_HEADER + "Hello World!");
+                        writer.flush();
+                    }
+                });
 
         // Start server
         @SuppressWarnings("unused")
@@ -27,11 +37,11 @@ public class SimpleExample {
         // And open it!
         String infoPage = "http://localhost:" + ServerConfig.DFLT_PORT + "/info.html";
 
-        if (Desktop.isDesktopSupported()) {
-            Desktop.getDesktop().browse(new URI(infoPage));
-        }
-        else
-            System.out.println(">>> Open " + infoPage);
+//        if (Desktop.isDesktopSupported()) {
+//            Desktop.getDesktop().browse(new URI(infoPage));
+//        }
+//        else
+//            System.out.println(">>> Open " + infoPage);
 
     }
 

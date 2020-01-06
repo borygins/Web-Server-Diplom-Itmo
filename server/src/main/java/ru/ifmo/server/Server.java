@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,11 +22,11 @@ import static ru.ifmo.server.Http.*;
 /**
  * Ifmo Web Server.
  * <p>
- *     To start server use {@link #start(ServerConfig)} and register at least
- *     one handler to process HTTP requests.
- *     Usage example:
- *     <pre>
- *{@code
+ * To start server use {@link #start(ServerConfig)} and register at least
+ * one handler to process HTTP requests.
+ * Usage example:
+ * <pre>
+ * {@code
  * ServerConfig config = new ServerConfig()
  *      .addHandler("/index", new Handler() {
  *          public void handle(Request request, Response response) throws Exception {
@@ -40,8 +41,9 @@ import static ru.ifmo.server.Http.*;
  *     </pre>
  * </p>
  * <p>
- *     To stop the server use {@link #stop()} or {@link #close()} methods.
+ * To stop the server use {@link #stop()} or {@link #close()} methods.
  * </p>
+ *
  * @see ServerConfig
  */
 public class Server implements Closeable {
@@ -89,8 +91,7 @@ public class Server implements Closeable {
 
             LOG.info("Server started on port: {}", config.getPort());
             return server;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
     }
@@ -126,8 +127,7 @@ public class Server implements Closeable {
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Parsed request: {}", req);
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             if (LOG.isDebugEnabled())
                 LOG.error("Malformed URL", e);
 
@@ -135,8 +135,7 @@ public class Server implements Closeable {
                     sock.getOutputStream());
 
             return;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOG.error("Error parsing request", e);
 
             respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
@@ -158,16 +157,14 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
 
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        }
-        else
+        } else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
@@ -177,14 +174,22 @@ public class Server implements Closeable {
 
         Request req = new Request(socket);
         StringBuilder sb = new StringBuilder(READER_BUF_SIZE); // TODO
-
-        while (readLine(reader, sb) > 0) {
+        int contentLen = -1;
+        while (readLine(reader, sb, contentLen) > 0) {
             if (req.method == null)
                 parseRequestLine(req, sb);
             else
                 parseHeader(req, sb);
 
             sb.setLength(0);
+
+            if (req.getHeaders().containsKey("Content-Length")) {
+                contentLen = Integer.valueOf(req.getHeaders().get("Content-Length"));
+            }
+        }
+
+        if (contentLen > 0) {
+            this.parseQuery(sb.toString(), req);
         }
 
         return req;
@@ -212,9 +217,13 @@ public class Server implements Closeable {
         assert req.path != null : "Request path can't be null";
 
         String query = req.path.getQuery();
+        this.parseQuery(query, req);
 
+    }
+
+    private void parseQuery(String query, Request req) {
         if (query != null) {
-            start = 0;
+            int start = 0;
 
             String key = null;
 
@@ -225,8 +234,7 @@ public class Server implements Closeable {
                     key = query.substring(start, i);
 
                     start = i + 1;
-                }
-                else if (key != null && (query.charAt(i) == AMP || last)) {
+                } else if (key != null && (query.charAt(i) == AMP || last)) {
                     req.addArgument(key, query.substring(start, last ? i + 1 : i));
 
                     key = null;
@@ -258,7 +266,7 @@ public class Server implements Closeable {
         req.addHeader(key, sb.substring(start, len).trim());
     }
 
-    private int readLine(InputStreamReader in, StringBuilder sb) throws IOException {
+    private int readLine(InputStreamReader in, StringBuilder sb, int contentlen) throws IOException {
         int c;
         int count = 0;
 
@@ -273,6 +281,17 @@ public class Server implements Closeable {
 
         if (count > 0 && sb.charAt(count - 1) == CR)
             sb.setLength(--count);
+
+        if (contentlen > 0 && count == 0) {
+            while ((c = in.read()) >= 0) {
+                sb.append((char) c);
+                count++;
+                if (count == contentlen) {
+                    count = 0;
+                    break;
+                }
+            }
+        }
 
         if (LOG.isTraceEnabled())
             LOG.trace("Read line: {}", sb.toString());
@@ -295,7 +314,7 @@ public class Server implements Closeable {
     }
 
     private boolean isMethodSupported(HttpMethod method) {
-        return method == HttpMethod.GET;
+        return (Arrays.stream(HttpMethod.values()).filter((q1) -> q1 == method).count() > 0) ? true : false;
     }
 
     private class ConnectionHandler implements Runnable {
@@ -305,8 +324,7 @@ public class Server implements Closeable {
                     sock.setSoTimeout(config.getSocketTimeout());
 
                     processConnection(sock);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     if (!Thread.currentThread().isInterrupted())
                         LOG.error("Error accepting connection", e);
                 }
