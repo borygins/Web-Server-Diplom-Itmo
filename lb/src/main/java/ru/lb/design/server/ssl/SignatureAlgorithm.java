@@ -9,7 +9,10 @@ public enum SignatureAlgorithm {
     rsa_pkcs1_sha384 (1281),
     rsa_pss_rsae_sha512 (2054),
     rsa_pkcs1_sha512 (1537),
-    rsa_pkcs1_sha1 (513);
+    rsa_pkcs1_sha1 (513),
+    ecdsa_sha1 (515),
+    SHA1_DSA (514),
+    ecdsa_secp521r1_sha512 (1539);
 
     short type;
 

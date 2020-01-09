@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SupportedVersions extends AExtension {
 
@@ -20,10 +21,12 @@ public class SupportedVersions extends AExtension {
         if(supportedVersionsListLen > 0){
             tlsVs = new ArrayList<>();
             for (int i = 0; i < supportedVersionsListLen/2; i++) {
+                short tempShort = buffer.getShort();
                 tlsVs.add(
-                Arrays.stream(TLSv.values()).filter((q1) -> (q1.getType() == buffer.getShort())).findFirst().get()
+                    Arrays.stream(TLSv.values()).filter((q1) -> (q1.getType() == tempShort)).findFirst().orElse(null)
                 );
             }
+            tlsVs = tlsVs.stream().filter((q1) -> q1 != null).collect(Collectors.toList());
         }
     }
 
@@ -41,5 +44,13 @@ public class SupportedVersions extends AExtension {
 
     public List<TLSv> getTlsVs() {
         return tlsVs;
+    }
+
+    public void setSupportedVersionsListLen(byte supportedVersionsListLen) {
+        this.supportedVersionsListLen = supportedVersionsListLen;
+    }
+
+    public void setTlsVs(List<TLSv> tlsVs) {
+        this.tlsVs = tlsVs;
     }
 }

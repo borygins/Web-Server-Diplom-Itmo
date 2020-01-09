@@ -45,4 +45,20 @@ public class ServerName extends AExtension {
     public byte[] getHostName() {
         return hostName;
     }
+
+    public void setLenServerName(short lenServerName) {
+        this.lenServerName = lenServerName;
+    }
+
+    public void setType(byte type) {
+        this.type = type;
+    }
+
+    public void setLenHostName(short lenHostName) {
+        this.lenHostName = lenHostName;
+    }
+
+    public void setHostName(byte[] hostName) {
+        this.hostName = hostName;
+    }
 }

@@ -19,10 +19,10 @@ public class ApplicationLayerProtocolNegotiation extends AExtension {
         if(alpnLen > 0){
             alpnNextProtocols = new ArrayList<>();
 
-            while (alpnLen + position < buffer.position()){
+            while (alpnLen + position > buffer.position()){
                 byte[] arrTemp = new byte[buffer.get()];
                 buffer.get(arrTemp);
-                alpnNextProtocols.add(String.valueOf(arrTemp));
+                alpnNextProtocols.add(new String(arrTemp));
             }
         }
     }
@@ -42,5 +42,13 @@ public class ApplicationLayerProtocolNegotiation extends AExtension {
 
     public List<String> getAlpnNextProtocols() {
         return alpnNextProtocols;
+    }
+
+    public void setAlpnLen(short alpnLen) {
+        this.alpnLen = alpnLen;
+    }
+
+    public void setAlpnNextProtocols(List<String> alpnNextProtocols) {
+        this.alpnNextProtocols = alpnNextProtocols;
     }
 }

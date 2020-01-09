@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SupportedGroups extends AExtension {
 
@@ -20,10 +21,12 @@ public class SupportedGroups extends AExtension {
         if(supportedGroupsListLen > 0){
             supportedGroups = new ArrayList<>();
             for (int i = 0; i < supportedGroupsListLen/2; i++) {
+                short tempShort = buffer.getShort();
                 supportedGroups.add(
-                Arrays.stream(ExtensionSuportedGroups.values()).filter((q1) -> (q1.getType() == buffer.getShort())).findFirst().get()
+                Arrays.stream(ExtensionSuportedGroups.values()).filter((q1) -> (q1.getType() == tempShort)).findFirst().orElse(null)
                 );
             }
+            supportedGroups = supportedGroups.stream().filter((q1) -> q1 != null).collect(Collectors.toList());
         }
     }
 
@@ -41,5 +44,13 @@ public class SupportedGroups extends AExtension {
 
     public List<ExtensionSuportedGroups> getSupportedGroups() {
         return supportedGroups;
+    }
+
+    public void setSupportedGroupsListLen(short supportedGroupsListLen) {
+        this.supportedGroupsListLen = supportedGroupsListLen;
+    }
+
+    public void setSupportedGroups(List<ExtensionSuportedGroups> supportedGroups) {
+        this.supportedGroups = supportedGroups;
     }
 }

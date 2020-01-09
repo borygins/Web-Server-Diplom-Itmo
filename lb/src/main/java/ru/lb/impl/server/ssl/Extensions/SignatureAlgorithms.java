@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SignatureAlgorithms extends AExtension {
 
@@ -20,10 +21,12 @@ public class SignatureAlgorithms extends AExtension {
         if(signatureAlgorithmLen > 0){
             signatureAlgorithms = new ArrayList<>();
             for (int i = 0; i < signatureAlgorithmLen/2; i++) {
+                short tempShort = buffer.getShort();
                 signatureAlgorithms.add(
-                Arrays.stream(SignatureAlgorithm.values()).filter((q1) -> (q1.getType() == buffer.getShort())).findFirst().get()
+                Arrays.stream(SignatureAlgorithm.values()).filter((q1) -> (q1.getType() == tempShort)).findFirst().orElse(null)
                 );
             }
+            signatureAlgorithms = signatureAlgorithms.stream().filter((q1) -> q1 != null).collect(Collectors.toList());
         }
     }
 
@@ -41,5 +44,13 @@ public class SignatureAlgorithms extends AExtension {
 
     public List<SignatureAlgorithm> getSignatureAlgorithms() {
         return signatureAlgorithms;
+    }
+
+    public void setSignatureAlgorithmLen(short signatureAlgorithmLen) {
+        this.signatureAlgorithmLen = signatureAlgorithmLen;
+    }
+
+    public void setSignatureAlgorithms(List<SignatureAlgorithm> signatureAlgorithms) {
+        this.signatureAlgorithms = signatureAlgorithms;
     }
 }

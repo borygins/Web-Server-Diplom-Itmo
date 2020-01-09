@@ -8,30 +8,27 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class SessionTicket extends AExtension {
+public class UnknownExtensions extends AExtension {
 
-    private byte[] data;
+    private byte[] array;
     @Override
     protected void readBuf(ByteBuffer buffer) {
-        if(len > 0) {
-            data = new byte[len];
-            buffer.get(data);
+        if(len > 0){
+            array = new byte[len];
+            buffer.get(array);
         }
-
     }
 
     @Override
     protected void getByte(ByteBuffer byteBuffer) {
-        if(len > 0) {
-            byteBuffer.put(data);
-        }
+        byteBuffer.put(array);
     }
 
-    public byte[] getData() {
-        return data;
+    public byte[] getArray() {
+        return array;
     }
 
-    public void setData(byte[] data) {
-        this.data = data;
+    public void setArray(byte[] array) {
+        this.array = array;
     }
 }

@@ -2,6 +2,7 @@ package ru.lb.impl.server;
 
 import ru.lb.design.server.IIdConnect;
 
+import javax.net.ssl.SSLEngine;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -17,9 +18,20 @@ public class IdConnect implements IIdConnect {
     private InetSocketAddress host = null;
     private boolean client = false;
     private boolean server = false;
+    private SSLEngine engine;
 
     public IdConnect() {
 
+    }
+
+    @Override
+    public void setSSLEngine(SSLEngine engine) {
+        this.engine = engine;
+    }
+
+    @Override
+    public SSLEngine getSSLEngine() {
+        return engine;
     }
 
     @Override

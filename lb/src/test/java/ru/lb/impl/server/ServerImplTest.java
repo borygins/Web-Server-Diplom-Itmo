@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import ru.lb.impl.config.ConfigIPServer;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -25,11 +26,11 @@ class ServerImplTest {
             public void run() {
                 IConfig config = new Config();
                 config.addIPserver("127.0.0.1:8080", new InetSocketAddress("185.9.147.48", 80));
-                config.setIPserver(new InetSocketAddress("localhost", 80));
+                config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
                 config.setCountBuf(512);
                 config.setSizeBuf(1024);
 
-                IServer server = new Server(true,  config);
+                IServer server = new Server(true,  config, config.getIPservers().get(0), true);
                 server.setHistoryQuery(new HistoryQuery());
                 server.start();
             }});

@@ -5,11 +5,13 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import ru.lb.design.config.IConfig;
+import ru.lb.design.server.AServer;
 import ru.lb.design.server.IServer;
 import ru.lb.impl.config.Config;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import ru.lb.impl.config.ConfigIPServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -37,7 +39,7 @@ class ServerHttpMultiTest {
         IConfig config = new Config();
         config.setCountBuf(512);
         config.setSizeBuf(1024);
-        config.setIPserver(new InetSocketAddress("localhost", 443));
+        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true));
         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
         for (int i = 0; i < 10; i++) {
@@ -49,14 +51,18 @@ class ServerHttpMultiTest {
             portServer++;
         }
 
-        Thread lbServer = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                IServer server = new Server(true, config);
-                server.setHistoryQuery(new HistoryQuery());
-                server.start();
-            }
-        });
+        Thread lbServer = null;
+        for(ConfigIPServer ipServer : config.getIPservers()) {
+            lbServer = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    IServer server = AServer.serverFabric(config, ipServer);
+                    server.setHistoryQuery(new HistoryQuery());
+                    server.start();
+                }
+            });
+            lbServer.start();
+        }
         lbServers.add(lbServer);
         lbServer.start();
 
@@ -64,7 +70,7 @@ class ServerHttpMultiTest {
             lbServer = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    IServer server = new Server(false, config);
+                    IServer server = new Server(false, config, null, true);
                     server.start();
                 }
             });

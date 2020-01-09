@@ -7,5 +7,5 @@
   "countBuf" : 512,
   "countSelector" : 0,
   "patternReadHeadHost" : "\\r\\nHost: (.+)(:|\\r\\n)",
-  "ipserver" : "localhost:443"
+  "ipserver" : "localhost:8080"
 }

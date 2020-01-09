@@ -41,4 +41,16 @@ public class StatusRequest extends AExtension {
     public short getRequestExtensionsLen() {
         return requestExtensionsLen;
     }
+
+    public void setCertificateStatusType(byte certificateStatusType) {
+        this.certificateStatusType = certificateStatusType;
+    }
+
+    public void setResponderIDListLen(short responderIDListLen) {
+        this.responderIDListLen = responderIDListLen;
+    }
+
+    public void setRequestExtensionsLen(short requestExtensionsLen) {
+        this.requestExtensionsLen = requestExtensionsLen;
+    }
 }

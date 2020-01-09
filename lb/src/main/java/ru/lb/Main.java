@@ -3,8 +3,10 @@ package ru.lb;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import ru.lb.design.config.IConfig;
+import ru.lb.design.server.AServer;
 import ru.lb.design.server.IServer;
 import ru.lb.impl.config.Config;
+import ru.lb.impl.config.ConfigIPServer;
 import ru.lb.impl.server.HistoryQuery;
 import ru.lb.impl.server.Server;
 import org.slf4j.Logger;
@@ -33,7 +35,8 @@ public class Main {
                         config = new Config();
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
-                        config.setIPserver(new InetSocketAddress("localhost", 443));
+                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true));
+                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);
                         config.setCountSelector(1);
@@ -62,23 +65,24 @@ public class Main {
             ObjectMapper objectMapper = new ObjectMapper();
             try {
                 config = objectMapper.readValue(path.toFile(), Config.class);
-
-                Thread lbServer = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        IServer server = new Server(true, config);
-                        server.setHistoryQuery(new HistoryQuery());
-                        server.start();
-                    }
-                });
-
-                lbServer.start();
+                Thread lbServer = null;
+                for(ConfigIPServer ipServer : config.getIPservers()) {
+                    lbServer = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            IServer server = AServer.serverFabric(config, ipServer);
+                            server.setHistoryQuery(new HistoryQuery());
+                            server.start();
+                        }
+                    });
+                    lbServer.start();
+                }
 
                 for (int i = 0; i < config.getCountSelector(); i++) {
                     lbServer = new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            IServer server = new Server(false, config);
+                            IServer server = new Server(false, config, null, true);
                             server.setHistoryQuery(new HistoryQuery());
                             server.start();
                         }

@@ -2,12 +2,13 @@ package ru.lb.impl.server.ssl;
 
 import ru.lb.design.server.ssl.*;
 
-import javax.crypto.Cipher;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
-public class SSLClientHello implements IHandshake {
+public class SSLServerHello implements IHandshake {
     private HandshakeType typeProtokol;
     private int lenHandshake;
     private TLSv tlsV;
@@ -25,9 +26,14 @@ public class SSLClientHello implements IHandshake {
     private List<AExtension> extensions;
     private boolean err = false;
 
+    public SSLServerHello() {
+//        typeProtokol = HandshakeType.
+    }
+
     @Override
     public void setSSL(ByteBuffer buf, short len, HandshakeType typeProtokol) {
         int lenHandshake = buf.position();
+
         short tempShort;
         byte tempByte;
 

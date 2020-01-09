@@ -1,5 +1,6 @@
 package ru.lb.design.server;
 
+import javax.net.ssl.SSLEngine;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -28,4 +29,7 @@ public interface IIdConnect {
 
     boolean isClient();
     boolean isServer();
+
+    void setSSLEngine(SSLEngine engine);
+    SSLEngine getSSLEngine();
 }

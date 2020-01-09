@@ -7,18 +7,20 @@ import ru.lb.design.server.AServer;
 import ru.lb.design.server.IIdConnect;
 import ru.lb.design.server.ServerReadStatus;
 import ru.lb.design.server.ServerWriteStatus;
+import ru.lb.impl.config.ConfigIPServer;
 import ru.lb.impl.exception.NotHostException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 public class Server extends AServer {
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
-    public Server(boolean startServer, IConfig config) {
-        super(startServer, config);
+    public Server(boolean startServer, IConfig config, ConfigIPServer configIPServer, boolean createBuffer) {
+        super(startServer, config, configIPServer, createBuffer);
     }
 
     @Override
@@ -51,7 +53,7 @@ public class Server extends AServer {
 
                 bytes = socketChannel.read(sharedBuffer);
 
-                status = this.read(key, idConnect, socketChannel,sharedBuffer, countBuf--, bytes);
+                status = this.read(key, idConnect, socketChannel, sharedBuffer, countBuf--, bytes);
 
             }
 
@@ -72,6 +74,11 @@ public class Server extends AServer {
             sharedBuffer.clear();
             this.close(key);
         }
+    }
+
+    @Override
+    protected ResultCheckSSL checkSSL(SocketChannel socketChannel, boolean typeClientMode) {
+        return new ResultCheckSSL(false, null);
     }
 
     /**

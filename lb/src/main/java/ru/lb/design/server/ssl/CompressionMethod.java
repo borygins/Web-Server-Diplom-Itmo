@@ -1,7 +1,7 @@
 package ru.lb.design.server.ssl;
 
 public enum CompressionMethod {
-    Null(1);
+    Null(0);
 
     byte type;
 

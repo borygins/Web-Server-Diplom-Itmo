@@ -2,25 +2,24 @@ package ru.lb.design.server;
 
 import org.slf4j.Logger;
 import ru.lb.design.config.IConfig;
+import ru.lb.impl.config.ConfigIPServer;
 import ru.lb.impl.exception.NotHostException;
 import ru.lb.impl.server.IdConnect;
+import ru.lb.impl.server.ResultCheckSSL;
+import ru.lb.impl.server.Server;
+import ru.lb.impl.server.ServerSSL;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public abstract class AServer implements IServer {
 
@@ -31,17 +30,24 @@ public abstract class AServer implements IServer {
     protected ArrayList<ByteBuffer> buf;
     protected static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
     protected static IHistoryQuery historyQuery;
+
+    public static IServer serverFabric(IConfig config, ConfigIPServer configIPServer){
+        return (configIPServer.isSsl()) ? new ServerSSL(true, config, configIPServer) : new Server(true, config, configIPServer, true);
+    }
     
 
     /**
      * Конструктор.
      * @param startServer Если true, то при вызове метода start() будет добавлен в селектор сервер.
      * @param config конфигурация сервера.
+     * @param createBuffer условие на создание массива буферов.
      */
-    public AServer(boolean startServer, IConfig config) {
+    public AServer(boolean startServer, IConfig config, ConfigIPServer configIPServer, boolean createBuffer) {
         this.startServer = startServer;
-        this.createBuf(config.getCountBuf(), config.getSizeBuf());
         this.config = config;
+
+        if(createBuffer)
+            this.createBuf(config.getCountBuf(), config.getSizeBuf());
 
         try {
             if (!startServer) {
@@ -50,10 +56,11 @@ public abstract class AServer implements IServer {
             } else {
                 this.selector = Selector.open();
                 queSelector.offer(this.selector);
+
                 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
                 serverSocketChannel.configureBlocking(false);
                 this.serverSocket = serverSocketChannel.socket();
-                this.serverSocket.bind(this.config.getIPserver());
+                this.serverSocket.bind(configIPServer.getIpServer());
                 serverSocketChannel.register(this.selector, SelectionKey.OP_ACCEPT);
                 if(getLogger().isInfoEnabled()){
                     getLogger().info("Выполнен запуск и регистрация канала " + this.serverSocket.toString());
@@ -141,6 +148,28 @@ public abstract class AServer implements IServer {
             //Принимаем входящее соединение и снимаем блокировку
             SocketChannel client = socket.getChannel();
             client.configureBlocking(false);
+            regOnSelector(key, client, selectorTemp);
+
+        } catch (IOException e) {
+            if (getLogger().isErrorEnabled()) {
+                getLogger().error("Unable to use channel");
+                e.printStackTrace();
+            }
+            this.close(key);
+        }
+
+    }
+
+    /**
+     *
+     * @param key
+     * @param client
+     * @param selectorTemp
+     * @return
+     * @throws ClosedChannelException
+     */
+    protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws ClosedChannelException {
+
             SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
 
             //Проверяем на существование идентификатора. Если его нет, создаем.
@@ -155,18 +184,14 @@ public abstract class AServer implements IServer {
                 selectionKeyClient.attach(idConnect);
             }
 
-            if(!this.selector.equals(selectorTemp)){
+            if (!this.selector.equals(selectorTemp)) {
                 selectorTemp.wakeup();
             }
-        } catch (IOException e) {
-            if (getLogger().isErrorEnabled()) {
-                getLogger().error("Unable to use channel");
-                e.printStackTrace();
-            }
-            this.close(key);
-        }
 
+            return idConnect;
     }
+
+    protected abstract ResultCheckSSL checkSSL(SocketChannel socketChannel, boolean typeClientMode);
 
     protected abstract Logger getLogger();
 

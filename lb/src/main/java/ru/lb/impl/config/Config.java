@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 public class Config implements IConfig {
     private final Map<String, String> att = new HashMap<>();
     private final Map<String, List<InetSocketAddress>> groupServer = new HashMap<>();
-    private InetSocketAddress ipServer;
+    private List<ConfigIPServer> ipServer = new ArrayList<>();
     private int sizeBuf;
     private int countBuf;
     private int countSelector;
@@ -29,7 +29,7 @@ public class Config implements IConfig {
     }
 
     @Override
-    public InetSocketAddress getIPserver() {
+    public List<ConfigIPServer> getIPservers() {
         return ipServer;
     }
 
@@ -64,8 +64,8 @@ public class Config implements IConfig {
     }
 
     @Override
-    public void setIPserver(InetSocketAddress value) {
-        this.ipServer = value;
+    public void setIPserver(ConfigIPServer value) {
+        this.ipServer.add(value);
     }
 
     @Override

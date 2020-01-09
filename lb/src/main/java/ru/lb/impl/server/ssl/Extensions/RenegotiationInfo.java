@@ -26,4 +26,7 @@ public class RenegotiationInfo extends AExtension {
         return renegotiationInfoLen;
     }
 
+    public void setRenegotiationInfoLen(byte renegotiationInfoLen) {
+        this.renegotiationInfoLen = renegotiationInfoLen;
+    }
 }

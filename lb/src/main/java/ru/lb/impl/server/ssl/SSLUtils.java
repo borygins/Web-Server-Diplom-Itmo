@@ -26,6 +26,20 @@ public class SSLUtils {
         return tepm;
     }
 
+    public static int convertByteToInt(byte[] arr, int count){
+        if(count > 4)
+            throw new NumberFormatException("Для получения Integer, необходимо не больше 4 байт");
+        int tepm = 0;
+        byte switchByte = (byte) ((count - 1) * 8);
+
+            for (int i = 0; i < count; i++) {
+                tepm = tepm | (arr[i] & 255) << switchByte;
+                switchByte -= 8;
+            }
+
+        return tepm;
+    }
+
     public static byte[] convertIntToByte(int value, int count) {
         if(count > 4)
             throw new NumberFormatException("Для получения Integer, необходимо не больше 4 байт");
@@ -36,5 +50,15 @@ public class SSLUtils {
             value >>>= 8;
         }
         return result;
+    }
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
     }
 }

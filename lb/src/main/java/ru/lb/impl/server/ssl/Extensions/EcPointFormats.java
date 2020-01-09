@@ -20,8 +20,9 @@ public class EcPointFormats extends AExtension {
         if(ecPointFormatLen > 0){
             ecPointFormatTypes = new ArrayList<>();
             for (int i = 0; i < ecPointFormatLen; i++) {
+                byte tempByte = buffer.get();
                 ecPointFormatTypes.add(
-                        Arrays.stream(ECPointFormatType.values()).filter((q1) -> (q1.getType() == buffer.get())).findFirst().get()
+                        Arrays.stream(ECPointFormatType.values()).filter((q1) -> (q1.getType() == tempByte)).findFirst().get()
                 );
             }
         }
@@ -32,9 +33,23 @@ public class EcPointFormats extends AExtension {
 
         byteBuffer.put(ecPointFormatLen);
         for (ECPointFormatType ecPointFormatType: ecPointFormatTypes) {
-            byteBuffer.putShort(ecPointFormatType.getType());
+            byteBuffer.put(ecPointFormatType.getType());
         }
     }
 
+    public byte getEcPointFormatLen() {
+        return ecPointFormatLen;
+    }
 
+    public void setEcPointFormatLen(byte ecPointFormatLen) {
+        this.ecPointFormatLen = ecPointFormatLen;
+    }
+
+    public List<ECPointFormatType> getEcPointFormatTypes() {
+        return ecPointFormatTypes;
+    }
+
+    public void setEcPointFormatTypes(List<ECPointFormatType> ecPointFormatTypes) {
+        this.ecPointFormatTypes = ecPointFormatTypes;
+    }
 }

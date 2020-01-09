@@ -3,6 +3,7 @@ package ru.lb.impl.server;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import ru.lb.impl.server.ssl.SSL;
 import ru.lb.impl.server.ssl.SSLClientHello;
 import ru.lb.impl.server.ssl.SSLUtils;
 
@@ -20,7 +21,9 @@ private ByteBuffer buffer;
     @Test
     void readSSLReq(){
         buffer.limit(buffer.capacity());
-    //   SSLClientHello pack = new SSLClientHello(buffer);
+       SSL pack = new SSL();
+       pack.setSSL(buffer);
+
     }
 
 

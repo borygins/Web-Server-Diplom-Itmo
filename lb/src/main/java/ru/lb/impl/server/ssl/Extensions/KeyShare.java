@@ -79,4 +79,32 @@ public class KeyShare extends AExtension {
     public byte[] getKeyExchageGroup() {
         return keyExchageGroup;
     }
+
+    public void setKeyShareLen(short keyShareLen) {
+        this.keyShareLen = keyShareLen;
+    }
+
+    public void setReserved(short reserved) {
+        this.reserved = reserved;
+    }
+
+    public void setKeyExchageLen(short keyExchageLen) {
+        this.keyExchageLen = keyExchageLen;
+    }
+
+    public void setKeyExchage(byte[] keyExchage) {
+        this.keyExchage = keyExchage;
+    }
+
+    public void setExtensionSuportedGroups(ExtensionSuportedGroups extensionSuportedGroups) {
+        this.extensionSuportedGroups = extensionSuportedGroups;
+    }
+
+    public void setKeyExchageGroupLen(short keyExchageGroupLen) {
+        this.keyExchageGroupLen = keyExchageGroupLen;
+    }
+
+    public void setKeyExchageGroup(byte[] keyExchageGroup) {
+        this.keyExchageGroup = keyExchageGroup;
+    }
 }
