@@ -1,0 +1,133 @@
+package ru.ifmo.server;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Provides {@link java.io.OutputStream} ro respond to client.
+ */
+public class Response {
+    final Socket socket;
+    private static int statusCode;
+    private Map<String, String> header = new HashMap<>();
+    private PrintWriter writer;
+    private long length;
+
+    Response(Socket socket) {
+        this.socket = socket;
+    }
+
+    /**
+     * @return {@link OutputStream} connected to the client.
+     */
+    public OutputStream getOutputStream() {
+        try {
+            return socket.getOutputStream();
+        } catch (IOException e) {
+            throw new ServerException("Cannot get output stream", e);
+        }
+    }
+
+    /**
+     * @return Content-Length
+     * @info Возвращает длину content body in the response In HTTP servlets.
+     */
+    public Long getContentLength() {
+        return length;
+    }
+
+    /**
+     * @info Задает длину тела содержимого в ответе В сервлете HTTP этот метод задает заголовок HTTP Content-Length.
+     */
+    public void setContentLength(long length) {
+        setHeader(Http.CONTENT_LENGTH, String.valueOf(length));
+        this.length = length;
+    }
+
+    /**
+     * @info Задает тип содержимого ответа, отправляемого клиенту, если ответ еще не зафиксирован.
+     * Данный тип контента может включать в себя спецификацию кодирования символов, например, текст/html; charset = UTF-8.
+     * Кодировка символов ответа устанавливается из данного типа контента только в том случае, если этот метод вызывается до вызова getWriter.
+     */
+    public void setContentType(String type) {
+        setHeader(Http.CONTENT_TYPE, type);
+    }
+
+    /**
+     * Возвращает объект PrintWriter, который может отправлять клиенту поток.
+     */
+    public PrintWriter getWriter() {
+        if (writer == null)
+            writer = new PrintWriter(getOutputStream());
+        return writer;
+    }
+
+    /**
+     * Set body
+     *
+     * @param data - byte array to set body
+     */
+    public void setBody(byte[] data) {
+        try {
+            getOutputStream().write(data);
+        } catch (IOException e) {
+            throw new ServerException("Cannot get output stream", e);
+        }
+    }
+
+    /**
+     * Добавляет заголовок response HTTP с указанным именем и значением.
+     *
+     * @param name  name header
+     * @param value String value header
+     */
+    public void setHeader(String name, String value) {
+        header.put(name, value);
+    }
+
+    /**
+     * Возвращает хэдеры в Map (http с именем и значением)
+     */
+    private Map<String, String> getHeaders() {
+        if (header == null) {
+            header = new HashMap<>();
+        }
+        return Collections.synchronizedMap(this.header);
+    }
+
+    /**
+     * Переписывает заголовки http с именем и значением
+     *
+     * @param headers map name and value
+     */
+    public void setHeaders(Map<String, String> headers) {
+        getHeaders().putAll(headers);
+    }
+
+    /**
+     * Этот метод задает код состояния HTTP
+     *
+     * @param code method takes an int (the status code) as an argument.
+     */
+    public void setStatusCode(int code) throws ResponseException {
+        if (code < Http.SC_CONTINUE || code > Http.SC_NOT_IMPLEMENTED) {
+            throw new ResponseException("Invalid Status Code " + code);
+        } else {
+            statusCode = code;
+        }
+    }
+
+    /**
+     * Метод возвращает код состояния HTTP (current response)
+     *
+     * @return int http status code
+     */
+    public static Integer getStatusCode() {
+        return statusCode;
+    }
+}
