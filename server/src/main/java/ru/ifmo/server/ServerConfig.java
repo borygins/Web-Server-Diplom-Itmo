@@ -30,6 +30,7 @@ public class ServerConfig {
         workDirectory =config.workDirectory;
     }
     /**
+     * todo write correct doc
      * ticket 2
      * implemented setWorkDirectory
      * @return

@@ -26,6 +26,7 @@ public class Response {
         }
     }
 
+    // todo remove
     public OutputStream getOutputStreamBuffer() {
         return null;
     }

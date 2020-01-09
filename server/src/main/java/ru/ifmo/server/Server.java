@@ -163,6 +163,7 @@ public class Server implements Closeable {
             }
         }
         else {
+            // todo
             String path = "";
             findPath(req, resp, sock, path);
 
@@ -311,6 +312,7 @@ public class Server implements Closeable {
 
     private String findMime(File file) {
         if (file.getName().endsWith(".txt")) {
+            // todo replace with Map
             return Http.MIME_TEXT_PLAIN;
         } else if (file.getName().endsWith(".html") || file.getName().endsWith(".htm")) {
             return Http.MIME_TEXT_HTML;
@@ -333,11 +335,13 @@ public class Server implements Closeable {
     }
     // were implement findPath? Line 165?
     private void findPath(Request req, Response resp, Socket sock, String path) throws IOException {
+        req.getPath(); // todo take this path instead
         File workDirectory = config.getWorkDirectory();
         File file;
         if (workDirectory != null) {
             (file = findFile(path, workDirectory)).exists();
             resp.setContentType(findMime(file));
+            // todo move to upper
         } else respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                 sock.getOutputStream());
     }
@@ -345,6 +349,8 @@ public class Server implements Closeable {
     private File findFile(String path, File workDirectory) {
         String dirPath = workDirectory.getAbsolutePath();
         String filePath = dirPath + path;
+
+        // new File(workDirectory, path);
         return new File(filePath);
     }
 }
