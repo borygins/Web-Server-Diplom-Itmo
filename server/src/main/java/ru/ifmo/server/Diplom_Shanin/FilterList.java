@@ -1,6 +1,5 @@
 package ru.ifmo.server.Diplom_Shanin;
 
-
 // лист
 
     public interface FilterList extends Iterable {

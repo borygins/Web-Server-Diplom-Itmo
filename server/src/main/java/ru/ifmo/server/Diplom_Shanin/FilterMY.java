@@ -4,6 +4,7 @@ import ru.ifmo.server.Request;
 import ru.ifmo.server.Response;
 
 // фильтр
+
 public class FilterMY extends FunctionFilter
 {
     // фильтр

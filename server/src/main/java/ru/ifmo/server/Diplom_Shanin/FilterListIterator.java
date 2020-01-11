@@ -2,7 +2,7 @@ package ru.ifmo.server.Diplom_Shanin;
 
 import java.util.Iterator;
 
-// итнратор
+// итератор
 
 public abstract class FilterListIterator implements Iterator {
 
