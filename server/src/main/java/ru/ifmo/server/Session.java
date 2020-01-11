@@ -7,13 +7,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Session {
 
     /**
-     * Aviable symbols and lenght to generate jsessionid
+     * Available symbols and length to generate jsessionid
      */
     private static final String JSID_SYMBOLS = "abcdefghijklmnopqrstuvwxyz123456789";
     private static final int JSID_LENGTH = 32;
 
     /**
-     * Session name & livetime in minutes
+     * Session name & lifetime in minutes
      */
     public static int SESSION_LIVETIME = 1;
     public static String SESSION_COOKIENAME = "JSESSIONID";
