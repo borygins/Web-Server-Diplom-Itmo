@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static ru.ifmo.server.Session.SESSION_COOKIENAME;
+import static ru.ifmo.server.Session.SESSION_LIVETIME;
+
 /**
  * Keeps request information: method, headers, params
  * and provides {@link java.io.InputStream} to get additional data
@@ -22,6 +25,8 @@ public class Request {
     Map<String, String> headers;
     Map<String, String> args;
     private Map<String, String> cookies;
+
+    private Session session;
 
     Request(Socket socket) {
         this.socket = socket;
@@ -103,6 +108,30 @@ public class Request {
     public String getCookieValue(String cookiename) {
 
         return getCookies().get(cookiename);
+    }
+
+    private boolean containsJSIDCookie() {
+        return getCookies().containsKey(SESSION_COOKIENAME);
+    }
+
+    public Session getSession() {
+        if (session == null) {
+            session = getSession(false);
+        }
+        return session;
+    }
+
+    public Session getSession(boolean create) {
+        if (!containsJSIDCookie() || create) {
+            session = new Session();
+            Server.setSessions(session.getId(), session);
+        } else {
+            session = Server.getSessions().get(getCookieValue(SESSION_COOKIENAME));
+            if (session == null) {
+                session = getSession(true);
+            }
+        }
+        return session;
     }
 
     @Override

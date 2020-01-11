@@ -1,7 +1,9 @@
 package ru.ifmo.server;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,10 +14,14 @@ import java.util.List;
 public class Response {
     final Socket socket;
     List<Cookie> setCookies;
+    PrintWriter printWriter;
+    ByteArrayOutputStream bufferOutputStream;
 
     Response(Socket socket) {
         this.socket = socket;
     }
+
+
 
     /**
      *Установка Cookie
@@ -41,6 +47,29 @@ public class Response {
         cookie.value = " ";
 
         setCookies.add(cookie);
+    }
+
+    /**
+     * Returns a buffered OutputStream suitable for writing binary data in the response. Need send responseto client exec method FlushBuffer
+     * @return buffered ByteArrayOutputStream
+     */
+    public ByteArrayOutputStream getOutputStreamBuffer() {
+        if (bufferOutputStream==null)
+            bufferOutputStream = new ByteArrayOutputStream();
+
+        return bufferOutputStream;
+    }
+
+    /**
+     * Returns a PrintWriter object that can send character text to the client.
+     flush() calling automatically on flushBuffer()
+     * @return {@link PrintWriter}
+     * @throws ServerException  if an output exception occurred
+     */
+    public PrintWriter getWriter() {
+        if (printWriter==null)
+            printWriter = new PrintWriter(getOutputStreamBuffer());
+        return printWriter;
     }
 
     /**

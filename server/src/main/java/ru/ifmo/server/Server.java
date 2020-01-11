@@ -12,11 +12,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
+import static ru.ifmo.server.Session.SESSION_COOKIENAME;
+import static ru.ifmo.server.util.Utils.htmlMessage;
 
 /**
  * Ifmo Web Server.
@@ -60,10 +63,33 @@ public class Server implements Closeable {
 
     private ExecutorService acceptorPool;
 
+    private static Map<String, Session> sessions = new ConcurrentHashMap<>();
+    private Thread lisThread;
+
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
     private Server(ServerConfig config) {
         this.config = new ServerConfig(config);
+    }
+
+    static Map<String, Session> getSessions() {
+        return sessions;
+    }
+
+    static void setSessions(String key, Session session) {
+        Server.sessions.put(key, session);
+    }
+
+    static void removeSession(String key) {
+        Server.sessions.remove(key);
+    }
+
+    private void listenSessions() throws IOException {
+        SessionListener sessionListener = new SessionListener();
+        lisThread = new Thread(sessionListener);
+        lisThread.start();
+
+        LOG.info("Session listener started, deleting by timeout.");
     }
 
     /**
@@ -94,6 +120,46 @@ public class Server implements Closeable {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
     }
+
+    /**
+     * Forces any content in the buffer to be written to the client
+     */
+    private static void flushResponse(Request request, Response response) {
+
+
+        try {
+            OutputStream out = response.socket.getOutputStream();
+            if (request.getSession() != null) {
+                response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
+            }
+
+            if (response.setCookies != null) {
+
+                for (Cookie cookie : response.setCookies) {
+
+                    StringBuilder cookieline = new StringBuilder();
+
+                    cookieline.append(cookie.name + "=" + cookie.value);
+                    if (cookie.maxage != null) cookieline.append(";MAX-AGE=" + cookie.maxage);
+                    if (cookie.domain != null) cookieline.append(";DOMAIN=" + cookie.domain);
+                    if (cookie.path != null) cookieline.append(";PATH=" + cookie.path);
+
+                    out.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
+
+                }
+            }
+
+            out.write(CRLF.getBytes());
+            if (response.bufferOutputStream != null)
+                out.write(response.bufferOutputStream.toByteArray());
+
+            out.flush();
+        } catch (IOException e) {
+            throw new ServerException("Cannot get output stream", e);
+        }
+
+    }
+
 
     private void openConnection() throws IOException {
         socket = new ServerSocket(config.getPort());
