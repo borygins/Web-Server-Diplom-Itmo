@@ -67,7 +67,7 @@ class ServerHttpTest {
                 config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
                 config.setCountBuf(512);
                 config.setSizeBuf(1024);
-                IServer server = new Server(true,  config, config.getIPservers().get(0), false);
+                IServer server = new Server(true,  config, config.getIPlb().get(0), false);
                 server.setHistoryQuery(new HistoryQuery());
                 server.start();
             }});

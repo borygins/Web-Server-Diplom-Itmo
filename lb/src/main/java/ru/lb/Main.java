@@ -66,7 +66,7 @@ public class Main {
             try {
                 config = objectMapper.readValue(path.toFile(), Config.class);
                 Thread lbServer = null;
-                for(ConfigIPServer ipServer : config.getIPservers()) {
+                for(ConfigIPServer ipServer : config.getIPlb()) {
                     lbServer = new Thread(new Runnable() {
                         @Override
                         public void run() {

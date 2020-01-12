@@ -168,7 +168,7 @@ public abstract class AServer implements IServer {
      * @return
      * @throws ClosedChannelException
      */
-    protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws ClosedChannelException {
+    protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws IOException {
 
             SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
 
@@ -178,6 +178,7 @@ public abstract class AServer implements IServer {
                 idConnect = new IdConnect();
                 idConnect.setClient(true);
                 idConnect.setInverseConnect(new IdConnect());
+                idConnect.setClientConnection((InetSocketAddress) client.getRemoteAddress());
                 idConnect.getInverseConnect().setInverseConnect(idConnect);
                 idConnect.getInverseConnect().setServer(true);
                 idConnect.setSelectionKey(selectionKeyClient);
@@ -195,6 +196,17 @@ public abstract class AServer implements IServer {
 
     protected abstract Logger getLogger();
 
+    @Override
+    public void findHost(IIdConnect idConnect, ByteBuffer sharedBuffer) throws NotHostException {
+        if(idConnect.isClient() && idConnect.getHostConnection() == null) {
+            idConnect.setHostConnection(historyQuery.getHostConnection(sharedBuffer));
+            idConnect.setHostConnection(historyQuery.find(idConnect.getClientConnection(), idConnect.getHostConnectionToString(), false));
+        }  else if(idConnect.isServer()) {
+            idConnect.setHostConnection(historyQuery.find(idConnect.getInverseConnect().getHostConnection(), idConnect.getInverseConnect().getHostConnectionToString(), true));
+        }
+        idConnect.getInverseConnect().setHostConnection(idConnect.getHostConnection());
+    }
+
     /**
      * Метод обработки входящих данных.
      * @param key ключ из выборки селектора
@@ -204,10 +216,7 @@ public abstract class AServer implements IServer {
 
     protected ServerReadStatus read(SelectionKey key, IIdConnect idConnect, SocketChannel socketChannel, ByteBuffer sharedBuffer, int countBuf, int bytes) throws IOException, NotHostException {
 
-        if(idConnect.isClient() && idConnect.getHostConnection() == null) {
-            idConnect.setHostConnection(historyQuery.find((InetSocketAddress) socketChannel.getRemoteAddress(), sharedBuffer));
-            idConnect.getInverseConnect().setHostConnection(idConnect.getHostConnection());
-        }
+        this.findHost(idConnect, sharedBuffer);
 
         boolean writeData = (countBuf == 0) | (sharedBuffer.position() != 0 & bytes < 1 & sharedBuffer.position() != sharedBuffer.capacity());
         boolean closeSelectionKey = (bytes == -1);
@@ -296,11 +305,14 @@ public abstract class AServer implements IServer {
 
             SocketChannel writer = null;
             try {
+                if(idConnect.incrementCountConnection() > 2) {
+                    this.findHost(idConnect, null);
+                }
                 writer = SocketChannel.open();
                 writer.configureBlocking(false);
                 writer.connect(idConnect.getHostConnection());
                 writer.register(key.selector(), writer.validOps(), idConnect);
-            }catch (IOException ex){
+            }catch (IOException | NotHostException ex){
                 if (getLogger().isErrorEnabled()) {
                     getLogger().error("Err connect..." + key.channel().toString());
                     e.printStackTrace();

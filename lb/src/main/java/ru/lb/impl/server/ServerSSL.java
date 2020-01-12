@@ -3,6 +3,7 @@ package ru.lb.impl.server;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.IIdConnect;
 import ru.lb.design.server.ServerReadStatus;
+import ru.lb.design.server.ServerWriteStatus;
 import ru.lb.impl.config.ConfigIPServer;
 import ru.lb.impl.exception.NotHostException;
 
@@ -27,7 +28,7 @@ public class ServerSSL extends Server {
 
     private SSLContext context;
     public ServerSSL(boolean startServer, IConfig config, ConfigIPServer configIPServer) {
-        super(startServer, config, configIPServer,false);
+        super(startServer, config, configIPServer,true);
 
         char[] pass = "changeit".toCharArray();
 
@@ -47,12 +48,14 @@ public class ServerSSL extends Server {
     }
 
     @Override
-    protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws ClosedChannelException {
-        IIdConnect iIdConnect = null;
+    protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws IOException {
+        IIdConnect idConnect = null;
         ResultCheckSSL resultCheckSSL = checkSSL(client, false);
         if(resultCheckSSL.isResult()) {
-            iIdConnect = super.regOnSelector(key, client, selectorTemp);
-            return iIdConnect;
+            idConnect = super.regOnSelector(key, client, selectorTemp);
+            idConnect.setSSLEngine(resultCheckSSL.getEngine());
+            idConnect.getInverseConnect().setSSLEngine(resultCheckSSL.getEngine());
+            return idConnect;
         } else {
             return null;
         }
@@ -67,6 +70,7 @@ public class ServerSSL extends Server {
             engine.beginHandshake();
             if (doHandshake(socketChannel, engine)) {
                 resultCheckSSL.setResult(true);
+                resultCheckSSL.setEngine(engine);
             } else {
                 socketChannel.close();
                 if(getLogger().isDebugEnabled())
@@ -76,6 +80,84 @@ public class ServerSSL extends Server {
             e.printStackTrace();
         }
         return resultCheckSSL;
+    }
+
+    @Override
+    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel) {
+        IIdConnect idConnect = (IIdConnect) key.attachment();
+        SSLEngine engine = idConnect.getSSLEngine();
+
+        if(idConnect.isServer() || sharedBuffer == null){
+            return super.write(key,sharedBuffer,socketChannel);
+        }
+
+        try {
+
+            // The loop has a meaning for (outgoing) messages larger than 16KB.
+            // Every wrap call will remove 16KB from the original message and send it to the remote peer.
+            myNetData.clear();
+            SSLEngineResult result = engine.wrap(sharedBuffer, myNetData);
+            switch (result.getStatus()) {
+                case OK:
+                    super.write(key,myNetData,socketChannel);
+                    break;
+                case BUFFER_OVERFLOW:
+                    myNetData = enlargePacketBuffer(engine, myNetData);
+                    break;
+                case BUFFER_UNDERFLOW:
+                    throw new SSLException("Buffer underflow occured after a wrap. I don't think we should ever get here.");
+                case CLOSED:
+                    close(key);
+                    return ServerWriteStatus.EXIT;
+                default:
+                    throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
+            }
+
+        } catch (SSLException e) {
+
+            e.printStackTrace();
+        }
+
+        return ServerWriteStatus.EXIT;
+    }
+
+    @Override
+    protected ServerReadStatus read(SelectionKey key, IIdConnect idConnect, SocketChannel socketChannel, ByteBuffer sharedBuffer, int countBuf, int bytes) throws IOException, NotHostException {
+
+        SSLEngine engine = idConnect.getSSLEngine();
+        if(bytes == 0 || idConnect.isServer()) {
+            return super.read(key, idConnect, socketChannel, peerAppData, countBuf, bytes);
+        } else if (bytes > 0) {
+            sharedBuffer.flip();
+            peerAppData = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+            peerAppData.clear();
+            while (sharedBuffer.hasRemaining()) {
+                SSLEngineResult result = engine.unwrap(sharedBuffer, peerAppData);
+                switch (result.getStatus()) {
+                    case OK:
+                        return super.read(key, idConnect, socketChannel, peerAppData, countBuf, bytes);
+                    case BUFFER_OVERFLOW:
+                        peerAppData = enlargeApplicationBuffer(engine, peerAppData);
+                        return ServerReadStatus.CONTINUE;
+                    case BUFFER_UNDERFLOW:
+                        sharedBuffer = handleBufferUnderflow(engine, sharedBuffer);
+                        return ServerReadStatus.CONTINUE;
+                    case CLOSED:
+                        if(getLogger().isDebugEnabled())
+                        getLogger().debug("Client wants to close connection...");
+                        close(key);
+                        return ServerReadStatus.EXIT;
+                    default:
+                        throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
+                }
+            }
+
+        } else if (bytes < 0) {
+            if(getLogger().isErrorEnabled())
+                getLogger().error("Received end of stream. Will try to close connection with client...");
+            handleEndOfStream(key, engine);
+        }
+        return ServerReadStatus.EXIT;
     }
 
     /**
@@ -322,22 +404,23 @@ public class ServerSSL extends Server {
         }
     }
 
-    /**
-     * This method should be called when this peer wants to explicitly close the connection
-     * or when a close message has arrived from the other peer, in order to provide an orderly shutdown.
-     * <p/>
-     * It first calls {@link SSLEngine#closeOutbound()} which prepares this peer to send its own close message and
-     * sets {@link SSLEngine} to the <code>NEED_WRAP</code> state. Then, it delegates the exchange of close messages
-     * to the handshake method and finally, it closes socket channel.
-     *
-     * @param socketChannel - the transport link used between the two peers.
-     * @param engine - the engine used for encryption/decryption of the data exchanged between the two peers.
-     * @throws IOException if an I/O error occurs to the socket channel.
-     */
-    protected void closeConnection(SocketChannel socketChannel, SSLEngine engine) throws IOException  {
-        engine.closeOutbound();
-        doHandshake(socketChannel, engine);
-        socketChannel.close();
+    @Override
+    public void close(SelectionKey key)  {
+
+        IIdConnect idConnect = (IIdConnect)key.attachment();
+        if(idConnect.isClient()) {
+            SSLEngine engine = idConnect.getSSLEngine();
+            try {
+                engine.closeOutbound();
+                doHandshake((SocketChannel) key.channel(), engine);
+            } catch (IOException e) {
+                if (getLogger().isErrorEnabled()) {
+                    getLogger().error("Ошибка разрыва TSL соединения: " + key.channel().toString());
+                    e.printStackTrace();
+                }
+            }
+        }
+        super.close(key);
     }
 
     /**
@@ -346,17 +429,16 @@ public class ServerSSL extends Server {
      * when trying to read from the socket channel, or an {@link IOException} when trying to write to it.
      * In both cases {@link SSLEngine#closeInbound()} should be called and then try to follow the standard procedure.
      *
-     * @param socketChannel - the transport link used between the two peers.
      * @param engine - the engine used for encryption/decryption of the data exchanged between the two peers.
      * @throws IOException if an I/O error occurs to the socket channel.
      */
-    protected void handleEndOfStream(SocketChannel socketChannel, SSLEngine engine) throws IOException  {
+    protected void handleEndOfStream(SelectionKey key, SSLEngine engine) throws IOException  {
         try {
             engine.closeInbound();
         } catch (Exception e) {
             getLogger().error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
         }
-        closeConnection(socketChannel, engine);
+        close(key);
     }
 
     /**

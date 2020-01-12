@@ -9,6 +9,6 @@ import java.nio.ByteBuffer;
 public interface IHistoryQuery {
 
     void setConfig(IConfig config);
-    InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) throws NotHostException;
+    InetSocketAddress find(InetSocketAddress address, String host, boolean remove) throws NotHostException;
     String getHostConnection(ByteBuffer buf) throws NotHostException;
 }

@@ -21,14 +21,23 @@ public interface IIdConnect {
     void setSelectionKey(SelectionKey key);
     SelectionKey getSelectionKey();
 
+    void setHostConnection(String host);
+    String getHostConnectionToString();
+
     void setHostConnection(InetSocketAddress host);
     InetSocketAddress getHostConnection();
+
+    void setClientConnection(InetSocketAddress client);
+    InetSocketAddress getClientConnection();
 
     void setServer(boolean server);
     void setClient(boolean client);
 
     boolean isClient();
     boolean isServer();
+
+    int incrementCountConnection();
+    void resetCountConnection();
 
     void setSSLEngine(SSLEngine engine);
     SSLEngine getSSLEngine();

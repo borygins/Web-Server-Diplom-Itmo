@@ -30,7 +30,7 @@ class ServerImplTest {
                 config.setCountBuf(512);
                 config.setSizeBuf(1024);
 
-                IServer server = new Server(true,  config, config.getIPservers().get(0), true);
+                IServer server = new Server(true,  config, config.getIPlb().get(0), true);
                 server.setHistoryQuery(new HistoryQuery());
                 server.start();
             }});

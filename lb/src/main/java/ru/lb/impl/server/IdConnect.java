@@ -16,12 +16,45 @@ public class IdConnect implements IIdConnect {
     private boolean stopConnect = false;
     private SelectionKey key;
     private InetSocketAddress host = null;
+    private InetSocketAddress clientHost = null;
+    private String hostString = null;
     private boolean client = false;
     private boolean server = false;
+    private int countConnection;
     private SSLEngine engine;
 
     public IdConnect() {
 
+    }
+
+    @Override
+    public int incrementCountConnection() {
+        return ++countConnection;
+    }
+
+    @Override
+    public void resetCountConnection() {
+        countConnection = 0;
+    }
+
+    @Override
+    public void setClientConnection(InetSocketAddress client) {
+        this.clientHost = client;
+    }
+
+    @Override
+    public InetSocketAddress getClientConnection() {
+        return clientHost;
+    }
+
+    @Override
+    public void setHostConnection(String host) {
+        this.hostString = host;
+    }
+
+    @Override
+    public String getHostConnectionToString() {
+        return hostString;
     }
 
     @Override
@@ -99,12 +132,10 @@ public class IdConnect implements IIdConnect {
         this.buffer.add(buffer);
     }
 
-
     @Override
     public ByteBuffer getAndRemoveBuf() {
         return  (this.buffer.size() > 0) ? this.buffer.remove(0) : null;
     }
-
 
     @Override
     public List<ByteBuffer> getAllBuf() {

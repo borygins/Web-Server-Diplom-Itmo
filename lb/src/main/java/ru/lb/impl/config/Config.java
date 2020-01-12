@@ -29,7 +29,16 @@ public class Config implements IConfig {
     }
 
     @Override
-    public List<ConfigIPServer> getIPservers() {
+    public List<InetSocketAddress> getListIPserver(String group) {
+        if(groupServer.containsKey(group)){
+            return groupServer.get(group);
+        } else {
+            return List.of();
+        }
+    }
+
+    @Override
+    public List<ConfigIPServer> getIPlb() {
         return ipServer;
     }
 

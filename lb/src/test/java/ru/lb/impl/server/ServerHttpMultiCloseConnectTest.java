@@ -4,17 +4,19 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.AServer;
 import ru.lb.design.server.IServer;
 import ru.lb.impl.config.Config;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import ru.lb.impl.config.ConfigIPServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -26,33 +28,29 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ServerHttpMultiTest {
+class ServerHttpMultiCloseConnectTest {
 
     private final List<HttpServer> httpServers = new ArrayList<>();
     private final List<Thread> lbServers = new ArrayList<>();
     private int portServer = 8765;
     private final String ipServer = "localhost";
     private final String URL = "http://localhost/index";
+    private final IConfig config = new Config();
 
     @BeforeEach
     void setUp() throws IOException, InterruptedException {
-        IConfig config = new Config();
         config.setCountBuf(512);
         config.setSizeBuf(1024);
-        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true));
+        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
         for (int i = 0; i < 10; i++) {
-            HttpServer httpServer = HttpServer.create();
-            this.startHttpServer(httpServer, portServer);
-            httpServer.start();
-            httpServers.add(httpServer);
-            config.addIPserver("localhost", new InetSocketAddress(ipServer, portServer));
-            portServer++;
+            httpServers.add(this.startHttpServer(portServer));
+            config.addIPserver("localhost", new InetSocketAddress(ipServer, portServer++));
         }
 
         Thread lbServer = null;
-        for(ConfigIPServer ipServer : config.getIPservers()) {
+        for(ConfigIPServer ipServer : config.getIPlb()) {
             lbServer = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -61,31 +59,17 @@ class ServerHttpMultiTest {
                     server.start();
                 }
             });
-            lbServer.start();
-        }
-        lbServers.add(lbServer);
-        lbServer.start();
-
-        for (int i = 0; i < 1; i++) {
-            lbServer = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    IServer server = new Server(false, config, null, true);
-                    server.start();
-                }
-            });
 
             lbServers.add(lbServer);
             lbServer.start();
         }
 
-
-
         Thread.sleep(5000);
     }
 
-    private void startHttpServer(HttpServer httpServer, int portServer) throws IOException {
-        httpServer.bind(new InetSocketAddress(portServer), 0);
+    private HttpServer startHttpServer(int portServer) throws IOException {
+        HttpServer httpServer = HttpServer.create();
+        httpServer.bind(new InetSocketAddress("127.0.0.1",portServer), 0);
         httpServer.createContext("/index", new HttpHandler() {
             @Override
             public void handle(HttpExchange exchange) throws IOException {
@@ -105,8 +89,13 @@ class ServerHttpMultiTest {
                 OutputStream os = exchange.getResponseBody();
                 os.write(bytes);
                 os.close();
+//                httpServers.remove(httpServer);
+//                httpServer.stop(3000);
+
             }
         });
+        httpServer.start();
+        return httpServer;
     }
 
     @Test
@@ -127,6 +116,15 @@ class ServerHttpMultiTest {
         assertEquals(200, response.statusCode());
         assertEquals(true, response.body().toLowerCase().contains("validhead=1245"));
 
+        httpServers.forEach((q1) -> q1.stop(0));
+
+        config.getListIPserver("localhost").clear();
+
+            httpServers.add(this.startHttpServer(portServer));
+            config.addIPserver("localhost", new InetSocketAddress(ipServer, portServer));
+
+        Thread.sleep(5000);
+
         request = HttpRequest.newBuilder()
                 .uri(URI.create(URL))
                 .setHeader("ValidHead", "1241")
@@ -144,7 +142,7 @@ class ServerHttpMultiTest {
     @AfterEach
     void tearDown() {
         for (HttpServer httpServer : httpServers)
-            httpServer.stop(10);
+            httpServer.stop(0);
         for (Thread lbServer : lbServers)
             lbServer.interrupt();
     }

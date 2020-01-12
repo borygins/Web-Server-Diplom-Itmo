@@ -11,9 +11,10 @@ public interface IConfig {
     void addAtt(String name, String value);
     InetSocketAddress getRandomIPserver(String group);
     InetSocketAddress getRandomIPserver();
+    List<InetSocketAddress> getListIPserver(String group);
     void addIPserver(String group, InetSocketAddress value);
     void setIPserver(ConfigIPServer value);
-    List<ConfigIPServer> getIPservers();
+    List<ConfigIPServer> getIPlb();
 
     int getCountBuf();
     void setCountBuf(int countBuf);

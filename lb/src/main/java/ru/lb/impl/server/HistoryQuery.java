@@ -42,13 +42,12 @@ public class HistoryQuery implements IHistoryQuery {
     }
 
     @Override
-    public  InetSocketAddress find(InetSocketAddress address, ByteBuffer buf) throws NotHostException {
-        String host = getHostConnection(buf);
+    public  InetSocketAddress find(InetSocketAddress address, String host, boolean remove) throws NotHostException {
         InetSocketAddress out = null;
         Map<String, InetSocketAddress> hostMap = null;
         if(mapTable.containsKey(address.getAddress().getHostAddress())){
             hostMap = mapTable.get(address.getAddress().getHostAddress());
-            if(hostMap.containsKey(host)){
+            if(hostMap.containsKey(host) && !remove){
                 out =  hostMap.get(host);
             } else {
                 synchronized (monitor) {
