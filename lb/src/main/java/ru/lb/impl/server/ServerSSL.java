@@ -99,6 +99,7 @@ public class ServerSSL extends Server {
             SSLEngineResult result = engine.wrap(sharedBuffer, myNetData);
             switch (result.getStatus()) {
                 case OK:
+                    myNetData.flip();
                     super.write(key,myNetData,socketChannel);
                     break;
                 case BUFFER_OVERFLOW:
