@@ -1,10 +1,10 @@
 package ru.ifmo.server;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,10 +13,11 @@ import java.util.Map;
  */
 public class Response {
     final Socket socket;
-    private static int statusCode;
-    private Map<String, String> header = new HashMap<>();
+    private int statusCode;
+    public Map<String, String> headers = new HashMap<>();
     private PrintWriter writer;
     private long length;
+    ByteArrayOutputStream bout;
 
     Response(Socket socket) {
         this.socket = socket;
@@ -26,18 +27,17 @@ public class Response {
      * @return {@link OutputStream} connected to the client.
      */
     public OutputStream getOutputStream() {
-        try {
-            return socket.getOutputStream();
-        } catch (IOException e) {
-            throw new ServerException("Cannot get output stream", e);
-        }
+        if (bout != null)
+            bout = new ByteArrayOutputStream(1024);
+
+        return bout;
     }
 
     /**
      * @return Content-Length
      * @info Возвращает длину content body in the response In HTTP servlets.
      */
-    public Long getContentLength() {
+    public long getContentLength() {
         return length;
     }
 
@@ -72,6 +72,8 @@ public class Response {
      *
      * @param data - byte array to set body
      */
+    // todo remove
+    @Deprecated
     public void setBody(byte[] data) {
         try {
             getOutputStream().write(data);
@@ -87,17 +89,17 @@ public class Response {
      * @param value String value header
      */
     public void setHeader(String name, String value) {
-        header.put(name, value);
+        headers.put(name, value);
     }
 
     /**
      * Возвращает хэдеры в Map (http с именем и значением)
      */
     private Map<String, String> getHeaders() {
-        if (header == null) {
-            header = new HashMap<>();
+        if (headers == null) {
+            headers = new HashMap<>();
         }
-        return Collections.synchronizedMap(this.header);
+        return new HashMap<>(headers);
     }
 
     /**
@@ -114,9 +116,9 @@ public class Response {
      *
      * @param code method takes an int (the status code) as an argument.
      */
-    public void setStatusCode(int code) throws ResponseException {
+    public void setStatusCode(int code) {
         if (code < Http.SC_CONTINUE || code > Http.SC_NOT_IMPLEMENTED) {
-            throw new ResponseException("Invalid Status Code " + code);
+            throw new ServerException("Invalid Status Code " + code);
         } else {
             statusCode = code;
         }
@@ -127,7 +129,7 @@ public class Response {
      *
      * @return int http status code
      */
-    public static Integer getStatusCode() {
+    public Integer getStatusCode() {
         return statusCode;
     }
 }

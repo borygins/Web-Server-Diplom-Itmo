@@ -16,7 +16,7 @@ public class ResponseExample {
                         response.setHeader("Content-Length", "200");
 
                         PrintWriter pw = new PrintWriter(response.getOutputStream());
-                        pw.write(Http.OK_HEADER + Response.getStatusCode());
+                        pw.write(Http.OK_HEADER + response.getStatusCode());
                         pw.write(response.getOutputStream().toString());
                         pw.flush();
                         pw.close();

@@ -15,17 +15,17 @@ import java.net.URISyntaxException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
+import static ru.ifmo.server.util.Utils.htmlMessage;
 
 /**
  * Ifmo Web Server.
  * <p>
- *     To start server use {@link #start(ServerConfig)} and register at least
- *     one handler to process HTTP requests.
- *     Usage example:
- *     <pre>
- *{@code
+ * To start server use {@link #start(ServerConfig)} and register at least
+ * one handler to process HTTP requests.
+ * Usage example:
+ * <pre>
+ * {@code
  * ServerConfig config = new ServerConfig()
  *      .addHandler("/index", new Handler() {
  *          public void handle(Request request, Response response) throws Exception {
@@ -40,8 +40,9 @@ import static ru.ifmo.server.Http.*;
  *     </pre>
  * </p>
  * <p>
- *     To stop the server use {@link #stop()} or {@link #close()} methods.
+ * To stop the server use {@link #stop()} or {@link #close()} methods.
  * </p>
+ *
  * @see ServerConfig
  */
 public class Server implements Closeable {
@@ -89,8 +90,7 @@ public class Server implements Closeable {
 
             LOG.info("Server started on port: {}", config.getPort());
             return server;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
     }
@@ -115,6 +115,40 @@ public class Server implements Closeable {
         socket = null;
     }
 
+    static void responseProcessing(Response resp) throws IOException {
+        final byte[] body = resp.bout.toByteArray();
+        // status code
+        final int statusCode = resp.getStatusCode();
+        resp.setStatusCode(statusCode);
+        long contentLength = 0;
+        // if no content length set
+        //body.length - Content-Length
+        if (resp.getOutputStream() != null) {
+            resp.getOutputStream().flush();
+            contentLength = resp.getContentLength();
+        }
+        // create HTTP response:
+        if (resp.getWriter() != null) {
+            resp.getWriter().flush();
+        }
+        // set this header
+        if (resp.headers.get(CONTENT_LENGTH) == null) {
+            resp.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
+        }
+
+        // write all headers
+        OutputStream outputStream = resp.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
+        for (String head : resp.headers.keySet()) {
+            outputStream.write((head + ":" + SPACE + resp.headers.get(head) + CRLF).getBytes());
+        }
+        outputStream.write(CRLF.getBytes());
+        if (resp.bout != null) {
+            outputStream.write(resp.bout.toByteArray());
+        }
+        outputStream.flush();
+    }
+
     private void processConnection(Socket sock) throws IOException {
         if (LOG.isDebugEnabled())
             LOG.debug("Accepting connection on: {}", sock);
@@ -126,8 +160,7 @@ public class Server implements Closeable {
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Parsed request: {}", req);
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             if (LOG.isDebugEnabled())
                 LOG.error("Malformed URL", e);
 
@@ -135,8 +168,7 @@ public class Server implements Closeable {
                     sock.getOutputStream());
 
             return;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOG.error("Error parsing request", e);
 
             respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
@@ -158,16 +190,17 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-            }
-            catch (Exception e) {
+
+                responseProcessing(resp);
+
+            } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
 
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        }
-        else
+        } else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
@@ -225,8 +258,7 @@ public class Server implements Closeable {
                     key = query.substring(start, i);
 
                     start = i + 1;
-                }
-                else if (key != null && (query.charAt(i) == AMP || last)) {
+                } else if (key != null && (query.charAt(i) == AMP || last)) {
                     req.addArgument(key, query.substring(start, last ? i + 1 : i));
 
                     key = null;
@@ -305,8 +337,7 @@ public class Server implements Closeable {
                     sock.setSoTimeout(config.getSocketTimeout());
 
                     processConnection(sock);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     if (!Thread.currentThread().isInterrupted())
                         LOG.error("Error accepting connection", e);
                 }
