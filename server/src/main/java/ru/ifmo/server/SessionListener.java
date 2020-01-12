@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 public class SessionListener implements Runnable {
+
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
     @Override

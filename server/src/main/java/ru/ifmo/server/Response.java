@@ -5,8 +5,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Provides {@link java.io.OutputStream} ro respond to client.
@@ -15,6 +14,7 @@ public class Response {
     final Socket socket;
     List<Cookie> setCookies;
     PrintWriter printWriter;
+    Map<String,String> headers = new LinkedHashMap<>();
     ByteArrayOutputStream bufferOutputStream;
 
     Response(Socket socket) {
@@ -22,21 +22,14 @@ public class Response {
     }
 
 
-
-    /**
-     *Установка Cookie
-     */
     public void setCookie(Cookie cookie) {
 
         if (setCookies == null) {
             setCookies = new ArrayList<>();
         }
+
         setCookies.add(cookie);
     }
-
-    /**
-     *Сброс Cookie
-     */
 
     public void resetCookie(Cookie cookie) {
 
@@ -71,6 +64,8 @@ public class Response {
             printWriter = new PrintWriter(getOutputStreamBuffer());
         return printWriter;
     }
+
+
 
     /**
      * @return {@link OutputStream} connected to the client.

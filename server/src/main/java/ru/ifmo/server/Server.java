@@ -114,6 +114,9 @@ public class Server implements Closeable {
             server.startAcceptor();
 
             LOG.info("Server started on port: {}", config.getPort());
+
+            server.listenSessions();
+
             return server;
         }
         catch (IOException e) {
@@ -322,6 +325,15 @@ public class Server implements Closeable {
         }
 
         req.addHeader(key, sb.substring(start, len).trim());
+
+        if (key.equals("Cookie")) {
+            String[] pairs = sb.substring(start, len).trim().split("; ");
+            for (int i = 0; i < pairs.length; i++) {
+                String pair = pairs[i];
+                String[] keyValue = pair.split("=");
+                req.insertCookie(keyValue[0], keyValue[1]);
+            }
+        }
     }
 
     private int readLine(InputStreamReader in, StringBuilder sb) throws IOException {

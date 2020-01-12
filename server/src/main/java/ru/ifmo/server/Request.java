@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static ru.ifmo.server.Session.SESSION_COOKIENAME;
-import static ru.ifmo.server.Session.SESSION_LIVETIME;
 
 /**
  * Keeps request information: method, headers, params
