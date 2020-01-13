@@ -1,7 +1,6 @@
 package ru.ifmo.server;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -29,7 +28,6 @@ public class Response {
     public OutputStream getOutputStream() {
         if (bout != null)
             bout = new ByteArrayOutputStream(1024);
-
         return bout;
     }
 
@@ -65,21 +63,6 @@ public class Response {
         if (writer == null)
             writer = new PrintWriter(getOutputStream());
         return writer;
-    }
-
-    /**
-     * Set body
-     *
-     * @param data - byte array to set body
-     */
-    // todo remove
-    @Deprecated
-    public void setBody(byte[] data) {
-        try {
-            getOutputStream().write(data);
-        } catch (IOException e) {
-            throw new ServerException("Cannot get output stream", e);
-        }
     }
 
     /**

@@ -27,4 +27,5 @@ public class ResponseTest {
         HttpResponse httpResponse=HttpClientBuilder.create().build().execute(request);
         Assert.assertEquals("text/plain", ContentType.getOrDefault(httpResponse.getEntity()).getMimeType());
     }
+
 }
