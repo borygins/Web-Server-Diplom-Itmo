@@ -65,7 +65,25 @@ public class Response {
         return printWriter;
     }
 
+    public void setHeader(String name, String value) {
+        this.headers.put(name,value);
+    }
 
+    /**
+     * rewrite http headers with map name and value
+     * @param headers map name and value
+     */
+    public void setHeaders (Map<String, String> headers) {
+        this.headers.putAll(headers);
+    }
+
+    /**
+     * get map http headers with name and value
+     * @return Map<String, String> headers
+     */
+    public Map<String, String> getHeaders() {
+        return Collections.unmodifiableMap(this.headers);
+    }
 
     /**
      * @return {@link OutputStream} connected to the client.

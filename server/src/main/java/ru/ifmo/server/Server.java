@@ -132,6 +132,10 @@ public class Server implements Closeable {
 
         try {
             OutputStream out = response.socket.getOutputStream();
+            for (String key : response.headers.keySet()) {
+                out.write((key + ":" + SPACE + response.headers.get(key) + CRLF).getBytes());
+            }
+
             if (request.getSession() != null) {
                 response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
             }
