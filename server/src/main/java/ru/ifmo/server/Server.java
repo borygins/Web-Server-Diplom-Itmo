@@ -10,6 +10,7 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.rmi.server.LogStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -112,6 +113,40 @@ public class Server implements Closeable {
 
         socket = null;
     }
+// этот метод (часть кода взял у Вадима стр 116 - 149)
+    static void responseProcessing(Response resp) throws IOException {
+        final byte[] body = resp.bout.toByteArray();
+        // status code
+        final int statusCode = resp.getStatusCode();
+        resp.setStatusCode(statusCode);
+        long contentLength = 0;
+        // if no content length set
+        //body.length - Content-Length
+        if (resp.getOutputStream() != null) {
+            resp.getOutputStream().flush();
+            contentLength = resp.getContentLength();
+        }
+        // create HTTP response:
+        if (resp.getWriter() != null) {
+            resp.getWriter().flush();
+        }
+        // set this header
+        if (resp.headers.get(CONTENT_LENGTH) == null) {
+            resp.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
+        }
+
+        // write all headers
+        OutputStream outputStream = resp.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
+        for (String head : resp.headers.keySet()) {
+            outputStream.write((head + ":" + SPACE + resp.headers.get(head) + CRLF).getBytes());
+        }
+        outputStream.write(CRLF.getBytes());
+        if (resp.bout != null) {
+            outputStream.write(resp.bout.toByteArray());
+        }
+        outputStream.flush();
+    }
 
     private void processConnection(Socket sock) throws IOException {
         if (LOG.isDebugEnabled())
@@ -154,6 +189,7 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
+                responseProcessing(resp);
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
@@ -161,12 +197,10 @@ public class Server implements Closeable {
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        }
-        else {
-            // todo
-            String path = "";
-            findPath(req, resp, sock, path);
 
+        } else if (!loadFile(req, resp)) {
+            respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
+                    sock.getOutputStream());
         }
     }
 
@@ -333,24 +367,39 @@ public class Server implements Closeable {
         }
         return MIME_BINARY;
     }
+
     // were implement findPath? Line 165?
-    private void findPath(Request req, Response resp, Socket sock, String path) throws IOException {
-        req.getPath(); // todo take this path instead
+    private boolean loadFile(Request req, Response resp) throws IOException {
+//        req.getPath();
+//        // todo take this path instead
         File workDirectory = config.getWorkDirectory();
-        File file;
-        if (workDirectory != null) {
-            (file = findFile(path, workDirectory)).exists();
-            resp.setContentType(findMime(file));
-            // todo move to upper
-        } else respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
-                sock.getOutputStream());
-    }
+//        String dirPath = workDirectory.getAbsolutePath();
+//        String filePath = dirPath + path;
+//        // File workDirectory = config.getWorkDirectory();
+//        File file;
+//        if (workDirectory != null) {
+//            (file = new File(workDirectory, path)).exists();
+//            resp.setContentType(findMime(file));
+//        }
+//
+//        if (workDirectory == null)
+//            return false;
+//
+        File file_ = new File(workDirectory, req.getPath());
 
-    private File findFile(String path, File workDirectory) {
-        String dirPath = workDirectory.getAbsolutePath();
-        String filePath = dirPath + path;
+        if (file_.exists() && file_.isFile()) {
+            resp.getOutputStream().write(Files.readAllBytes(file_.toPath()));
+            resp.setContentType(findMime(file_));
+            Writer writer = new OutputStreamWriter(resp.getOutputStream());
+            writer.write(Http.OK_HEADER + file_);
+            writer.flush();
+            // write status line
+            // write headers
+            // copy from FileInputStream to resp.getOutputStream()
 
-        // new File(workDirectory, path);
-        return new File(filePath);
+            return true;
+        }
+
+        return false;
     }
 }

@@ -30,10 +30,8 @@ public class ServerConfig {
         workDirectory =config.workDirectory;
     }
     /**
-     * todo write correct doc
-     * ticket 2
-     * implemented setWorkDirectory
-     * @return
+     * War directory with loading static content (.txt, .html, js, .png, etc.)
+     * @return WorkDirectory
      */
     public ServerConfig setWorkDirectory(File file) {
         this.workDirectory = file;
