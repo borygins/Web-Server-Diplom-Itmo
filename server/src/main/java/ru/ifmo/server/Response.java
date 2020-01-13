@@ -12,9 +12,9 @@ import java.util.Map;
  */
 public class Response {
     final Socket socket;
-    private int statusCode;
+    int statusCode;
     public Map<String, String> headers = new HashMap<>();
-    private PrintWriter writer;
+    public PrintWriter writer;
     private long length;
     ByteArrayOutputStream bout;
 
@@ -25,7 +25,7 @@ public class Response {
     /**
      * @return {@link OutputStream} connected to the client.
      */
-    public OutputStream getOutputStream() {
+    public ByteArrayOutputStream getOutputStream() {
         if (bout != null)
             bout = new ByteArrayOutputStream(1024);
         return bout;

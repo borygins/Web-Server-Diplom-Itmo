@@ -115,6 +115,42 @@ public class Server implements Closeable {
         socket = null;
     }
 
+    private void responseExecutor(Response response) throws IOException {
+        // response recording block
+        final byte[] body = response.bout.toByteArray();
+        // status code
+        final int statusCode = response.getStatusCode();
+        response.setStatusCode(statusCode);
+        long contentLength = 0;
+        // if no content length set
+        //body.length - Content-Length
+        if (response.getOutputStream() != null) {
+            response.getOutputStream().flush();
+            contentLength = body.length;
+        }
+        // create HTTP response:
+        if (response.getWriter() != null) {
+            response.getWriter().flush();
+        }
+        // set this header
+        if (response.headers.get(CONTENT_LENGTH) == null) {
+            response.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
+        }
+        // write all headers
+        OutputStream outputStream = response.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
+        for (String head : response.headers.keySet()) {
+            outputStream.write((head + ":" + SPACE + response.headers.get(head) + CRLF).getBytes());
+        }
+        outputStream.write(CRLF.getBytes());
+        if (body != null) {
+            outputStream.write(body);
+        }
+        outputStream.flush();
+
+        //Parser must be here!
+    }
+
     private void processConnection(Socket sock) throws IOException {
         if (LOG.isDebugEnabled())
             LOG.debug("Accepting connection on: {}", sock);
@@ -148,41 +184,12 @@ public class Server implements Closeable {
         Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
 
+        // This block doesn't work!
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-
-                // response recording block
-                final byte[] body = resp.bout.toByteArray();
-                // status code
-                final int statusCode = resp.getStatusCode();
-                resp.setStatusCode(statusCode);
-                long contentLength = 0;
-                // if no content length set
-                //body.length - Content-Length
-                if (resp.getOutputStream() != null) {
-                    resp.getOutputStream().flush();
-                    contentLength = body.length;
-                }
-                // create HTTP response:
-                if (resp.getWriter() != null) {
-                    resp.getWriter().flush();
-                }
-                // set this header
-                if (resp.headers.get(CONTENT_LENGTH) == null) {
-                    resp.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
-                }
-                // write all headers
-                OutputStream outputStream = resp.getOutputStream();
-                outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
-                for (String head : resp.headers.keySet()) {
-                    outputStream.write((head + ":" + SPACE + resp.headers.get(head) + CRLF).getBytes());
-                }
-                outputStream.write(CRLF.getBytes());
-                if (body != null) {
-                    outputStream.write(body);
-                }
-                outputStream.flush();
+                //Create response
+                responseExecutor(resp);
 
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
@@ -209,7 +216,6 @@ public class Server implements Closeable {
 
             sb.setLength(0);
         }
-
         return req;
     }
 
