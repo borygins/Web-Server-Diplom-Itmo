@@ -1,6 +1,7 @@
 package ru.ifmo.server;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -13,10 +14,10 @@ import java.util.Map;
 public class Response {
     final Socket socket;
     int statusCode;
-    public Map<String, String> headers = new HashMap<>();
-    public PrintWriter writer;
-    private long length;
-    ByteArrayOutputStream bout;
+    Map<String, String> headers = new HashMap<>();
+    PrintWriter writer;
+    int length;
+    ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
 
     Response(Socket socket) {
         this.socket = socket;
@@ -42,7 +43,7 @@ public class Response {
     /**
      * @info Задает длину тела содержимого в ответе В сервлете HTTP этот метод задает заголовок HTTP Content-Length.
      */
-    public void setContentLength(long length) {
+    public void setContentLength(int length) {
         setHeader(Http.CONTENT_LENGTH, String.valueOf(length));
         this.length = length;
     }

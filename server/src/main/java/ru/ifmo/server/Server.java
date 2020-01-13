@@ -115,40 +115,39 @@ public class Server implements Closeable {
         socket = null;
     }
 
-    private void responseExecutor(Response response) throws IOException {
-        // response recording block
-        final byte[] body = response.bout.toByteArray();
+    static void responseExecutor(Response response) throws IOException {
         // status code
-        final int statusCode = response.getStatusCode();
-        response.setStatusCode(statusCode);
+        if (response.getStatusCode() == 0) {
+            response.setStatusCode(Http.SC_OK);
+        }
         long contentLength = 0;
         // if no content length set
         //body.length - Content-Length
-        if (response.getOutputStream() != null) {
-            response.getOutputStream().flush();
-            contentLength = body.length;
+        if (response.bout != null) {
+            response.bout.flush();
+            contentLength = response.bout.size();
         }
         // create HTTP response:
-        if (response.getWriter() != null) {
-            response.getWriter().flush();
+        if (response.writer != null) {
+            response.writer.flush();
         }
         // set this header
         if (response.headers.get(CONTENT_LENGTH) == null) {
             response.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
         }
         // write all headers
-        OutputStream outputStream = response.getOutputStream();
-        outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
+        OutputStream outputStream = response.socket.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + response.getStatusCode() + SPACE + codeTranslator[response.getStatusCode()] + CRLF).getBytes());
+
         for (String head : response.headers.keySet()) {
             outputStream.write((head + ":" + SPACE + response.headers.get(head) + CRLF).getBytes());
         }
+
         outputStream.write(CRLF.getBytes());
-        if (body != null) {
-            outputStream.write(body);
+        if (response.bout != null) {
+            outputStream.write(response.bout.toByteArray());
         }
         outputStream.flush();
-
-        //Parser must be here!
     }
 
     private void processConnection(Socket sock) throws IOException {
@@ -183,7 +182,6 @@ public class Server implements Closeable {
 
         Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
-
         // This block doesn't work!
         if (handler != null) {
             try {
