@@ -1,7 +1,5 @@
 package ru.ifmo.server;
 
-import static ru.ifmo.server.Http.OK_HEADER;
-
 /**
  * Responds with OK status code, test text in body and parsed params.
  */
