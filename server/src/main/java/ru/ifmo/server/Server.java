@@ -231,19 +231,19 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
+                flushResponse(req, resp);
             }
             catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
-
-                respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
-                        sock.getOutputStream());
-            }
+                respond(SC_SERVER_ERROR, htmlMessage(SC_SERVER_ERROR + " Server error"), req, resp);            }
         }
         else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
+
+
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
@@ -362,10 +362,16 @@ public class Server implements Closeable {
         return count;
     }
 
-    private void respond(int code, String statusMsg, String content, OutputStream out) throws IOException {
+    static void respond(int code, String statusMsg, String content, OutputStream out) throws IOException {
         out.write(("HTTP/1.0" + SPACE + code + SPACE + statusMsg + CRLF + CRLF + content).getBytes());
         out.flush();
     }
+
+    static void respond(int code, String content, Request req, Response resp) throws IOException {
+        resp.setStatusCode(code);
+        flushResponse(req, resp);
+    }
+
 
     /**
      * Invokes {@link #stop()}. Usable in try-with-resources.

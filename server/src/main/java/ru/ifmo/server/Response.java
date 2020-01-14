@@ -12,6 +12,7 @@ import java.util.*;
  */
 public class Response {
     final Socket socket;
+    int statusCode;
     List<Cookie> setCookies;
     PrintWriter printWriter;
     Map<String,String> headers = new LinkedHashMap<>();
@@ -95,5 +96,16 @@ public class Response {
         catch (IOException e) {
             throw new ServerException("Cannot get output stream", e);
         }
+    }
+
+    /**
+     * This method sets an arbitrary http status code.
+     * @param code method takes an int (the status code) as an argument.
+     */
+    public void setStatusCode (int code) {
+        if ( (code<100)||(code>505)  ){
+            throw new ServerException("Not valid http status code:" + code);
+        }
+        statusCode = code;
     }
 }
