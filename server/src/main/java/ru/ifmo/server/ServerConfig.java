@@ -12,6 +12,7 @@ public class ServerConfig {
 
     private int port = DFLT_PORT;
     private Map<String, Class<? extends Handler>> handlers;
+    // todo Отдельно Map с классами и отдельно Map с экземплярами Handler
     private int socketTimeout;
 
     public ServerConfig() {
