@@ -105,7 +105,7 @@ public class Server implements Closeable {
         for (Map.Entry<String, Class<? extends Handler>> entry: config.getHandlers().entrySet()) {
 
             try {
-                Handler handler = entry.getValue().newInstance();
+                Handler handler = entry.getValue().getConstructor().newInstance();
 
                 handlers.put(entry.getKey(), handler);
 
