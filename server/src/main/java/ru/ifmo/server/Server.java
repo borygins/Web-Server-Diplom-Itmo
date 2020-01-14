@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -62,6 +63,8 @@ public class Server implements Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
+    private FunctionFilter filter = new TailFilter();
+
     private Server(ServerConfig config) {
         this.config = new ServerConfig(config);
     }
@@ -84,6 +87,7 @@ public class Server implements Closeable {
 
             Server server = new Server(config);
 
+            server.initFilters();
             server.openConnection();
             server.startAcceptor();
 
@@ -93,6 +97,21 @@ public class Server implements Closeable {
         catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
+    }
+
+    private void initFilters() {
+        List<FunctionFilter> filters = config.getFilters();
+
+        if (filters == null)
+            return;
+
+        for (int i = 0; i < filters.size() - 1; i++) {
+            filters.get(i).next = filters.get(i + 1);
+        }
+
+        filters.get(filters.size() - 1).next = new TailFilter();
+
+        filter = filters.get(0);
     }
 
     private void openConnection() throws IOException {
@@ -152,24 +171,12 @@ public class Server implements Closeable {
             return;
         }
 
-        Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
-
-        if (handler != null) {
-            try {
-                handler.handle(req, resp);
-            }
-            catch (Exception e) {
-                if (LOG.isDebugEnabled())
-                    LOG.error("Server error:", e);
-
-                respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
-                        sock.getOutputStream());
-            }
+        try {
+            filter.filter(req, resp);
+        } catch (Exception e) {
+            // todo respond 500
         }
-        else
-            respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
-                    sock.getOutputStream());
     }
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
@@ -311,6 +318,31 @@ public class Server implements Closeable {
                         LOG.error("Error accepting connection", e);
                 }
             }
+        }
+    }
+
+    private class TailFilter extends FunctionFilter {
+        @Override
+        void filter(Request req, Response resp) throws IOException {
+            Socket sock = req.socket;
+
+            Handler handler = config.handler(req.getPath());
+
+            if (handler != null) {
+                try {
+                    handler.handle(req, resp);
+                }
+                catch (Exception e) {
+                    if (LOG.isDebugEnabled())
+                        LOG.error("Server error:", e);
+
+                    respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
+                            sock.getOutputStream());
+                }
+            }
+            else
+                respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
+                        sock.getOutputStream());
         }
     }
 }

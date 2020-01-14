@@ -1,6 +1,8 @@
 package ru.ifmo.server;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,6 +15,7 @@ public class ServerConfig {
     private int port = DFLT_PORT;
     private Map<String, Handler> handlers;
     private int socketTimeout;
+    private List<FunctionFilter> filters;
 
     public ServerConfig() {
         handlers = new HashMap<>();
@@ -107,6 +110,19 @@ public class ServerConfig {
         this.socketTimeout = socketTimeout;
 
         return this;
+    }
+
+    public ServerConfig addFilter(FunctionFilter filter) {
+        if (filters == null)
+            filters = new ArrayList<>();
+
+        filters.add(filter);
+
+        return this;
+    }
+
+    public List<FunctionFilter> getFilters() {
+        return new ArrayList<>(filters);
     }
 
     @Override
