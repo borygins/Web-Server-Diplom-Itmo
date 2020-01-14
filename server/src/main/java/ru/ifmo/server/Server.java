@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -60,6 +61,8 @@ public class Server implements Closeable {
 
     private ExecutorService acceptorPool;
 
+    private Map<String, Handler> handlers;
+
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
     private Server(ServerConfig config) {
@@ -84,6 +87,8 @@ public class Server implements Closeable {
 
             Server server = new Server(config);
 
+            server.createHandlers();
+
             server.openConnection();
             server.startAcceptor();
 
@@ -92,6 +97,21 @@ public class Server implements Closeable {
         }
         catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
+        }
+    }
+
+    private void createHandlers() {
+
+        for (Map.Entry<String, Class<? extends Handler>> entry: config.getHandlers().entrySet()) {
+
+            try {
+                Handler handler = entry.getValue().newInstance();
+
+                handlers.put(entry.getKey(), handler);
+
+            } catch (InstantiationException | IllegalAccessException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -152,7 +172,7 @@ public class Server implements Closeable {
             return;
         }
 
-        Handler handler = config.handler(req.getPath());
+        Handler handler = handlers.get(req.getPath());
         Response resp = new Response(sock);
 
         if (handler != null) {

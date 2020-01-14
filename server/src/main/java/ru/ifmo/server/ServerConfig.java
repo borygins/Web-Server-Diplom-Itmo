@@ -11,7 +11,7 @@ public class ServerConfig {
     public static final int DFLT_PORT = 8080;
 
     private int port = DFLT_PORT;
-    private Map<String, Handler> handlers;
+    private Map<String, Class<? extends Handler>> handlers;
     private int socketTimeout;
 
     public ServerConfig() {
@@ -52,7 +52,7 @@ public class ServerConfig {
      * @param handler Request handler.
      * @return Itself for chaining.
      */
-    public ServerConfig addHandler(String path, Handler handler) {
+    public ServerConfig addHandlerClass(String path, Class<? extends Handler> handler) {
         handlers.put(path, handler);
 
         return this;
@@ -64,20 +64,20 @@ public class ServerConfig {
      * @param handlers Map paths to handlers.
      * @return Itself for chaining.
      */
-    public ServerConfig addHandlers(Map<String, Handler> handlers) {
+    public ServerConfig addHandlerClasses(Map<String, Class<? extends Handler>> handlers) {
         this.handlers.putAll(handlers);
 
         return this;
     }
 
-    Handler handler(String path) {
+    Class<? extends Handler> handler(String path) {
         return handlers.get(path);
     }
 
     /**
      * @return Current handler mapping.
      */
-    public Map<String, Handler> getHandlers() {
+    public Map<String, Class<? extends Handler>> getHandlers() {
         return handlers;
     }
 
@@ -86,7 +86,7 @@ public class ServerConfig {
      *
      * @param handlers Handler mappings.
      */
-    public void setHandlers(Map<String, Handler> handlers) {
+    public void setHandlers(Map<String, Class<? extends Handler>> handlers) {
         this.handlers = handlers;
     }
 
