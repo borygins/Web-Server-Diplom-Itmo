@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -115,38 +116,43 @@ public class Server implements Closeable {
         socket = null;
     }
 
-    static void responseExecutor(Response response) throws IOException {
+    private void responseExecutor(Response response) throws IOException {
         // status code
         if (response.getStatusCode() == 0) {
             response.setStatusCode(Http.SC_OK);
         }
-        long contentLength = 0;
-        // if no content length set
-        //body.length - Content-Length
-        if (response.bout != null) {
-            response.bout.flush();
-            contentLength = response.bout.size();
-        }
+
         // create HTTP response:
         if (response.writer != null) {
             response.writer.flush();
         }
+
+        long contentLength = 0;
+        // if no content length set
+        //body.length - Content-Length
+        if (response.bout != null) {
+            contentLength = response.bout.size();
+        }
+
         // set this header
         if (response.headers.get(CONTENT_LENGTH) == null) {
-            response.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
+            response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
         }
+
         // write all headers
         OutputStream outputStream = response.socket.getOutputStream();
         outputStream.write(("HTTP/1.0" + SPACE + response.getStatusCode() + SPACE + codeTranslator[response.getStatusCode()] + CRLF).getBytes());
 
-        for (String head : response.headers.keySet()) {
-            outputStream.write((head + ":" + SPACE + response.headers.get(head) + CRLF).getBytes());
+        for (Map.Entry<String, String> head : response.headers.entrySet()) {
+            outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
 
         outputStream.write(CRLF.getBytes());
+
         if (response.bout != null) {
             outputStream.write(response.bout.toByteArray());
         }
+
         outputStream.flush();
     }
 
@@ -186,9 +192,9 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
+
                 //Create response
                 responseExecutor(resp);
-
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);

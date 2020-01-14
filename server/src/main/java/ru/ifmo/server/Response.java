@@ -1,7 +1,6 @@
 package ru.ifmo.server;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -17,7 +16,7 @@ public class Response {
     Map<String, String> headers = new HashMap<>();
     PrintWriter writer;
     int length;
-    ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
+    ByteArrayOutputStream bout;
 
     Response(Socket socket) {
         this.socket = socket;
@@ -27,8 +26,9 @@ public class Response {
      * @return {@link OutputStream} connected to the client.
      */
     public ByteArrayOutputStream getOutputStream() {
-        if (bout != null)
+        if (bout == null)
             bout = new ByteArrayOutputStream(1024);
+
         return bout;
     }
 
@@ -80,9 +80,6 @@ public class Response {
      * Возвращает хэдеры в Map (http с именем и значением)
      */
     private Map<String, String> getHeaders() {
-        if (headers == null) {
-            headers = new HashMap<>();
-        }
         return new HashMap<>(headers);
     }
 
@@ -103,9 +100,9 @@ public class Response {
     public void setStatusCode(int code) {
         if (code < Http.SC_CONTINUE || code > Http.SC_NOT_IMPLEMENTED) {
             throw new ServerException("Invalid Status Code " + code);
-        } else {
-            statusCode = code;
         }
+
+        statusCode = code;
     }
 
     /**

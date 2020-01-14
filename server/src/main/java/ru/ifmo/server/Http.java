@@ -12,7 +12,7 @@ public class Http {
     public static final int SC_SERVER_ERROR = 500;
     public static final int SC_NOT_IMPLEMENTED = 501;
 
-    public static String[] codeTranslator = new String[600];
+    public static final String[] codeTranslator = new String[600];
 
     /**
      * Translate status codes
