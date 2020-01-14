@@ -18,6 +18,7 @@ public class SessionListener implements Runnable {
                     LocalDateTime ltnow = LocalDateTime.now();
                     Thread.sleep(1000);
                     if (entry.getValue().getExpire() != null && ltnow.isAfter(entry.getValue().getExpire())) {
+                        // todo debug
                         LOG.info("Deleting session '" + entry.getKey() + "'. Goodbye " + entry.getValue().getParam("name") + " " + entry.getValue().getParam("surname"));
                         entry.getValue().setExpired(true);
                         Server.removeSession(entry.getKey());

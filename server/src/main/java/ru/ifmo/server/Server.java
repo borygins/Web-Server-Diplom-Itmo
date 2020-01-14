@@ -63,6 +63,7 @@ public class Server implements Closeable {
 
     private ExecutorService acceptorPool;
 
+    // todo non-static
     private static Map<String, Session> sessions = new ConcurrentHashMap<>();
     private Thread lisThread;
 
@@ -89,6 +90,7 @@ public class Server implements Closeable {
         lisThread = new Thread(sessionListener);
         lisThread.start();
 
+        // todo debug
         LOG.info("Session listener started, deleting by timeout.");
     }
 
@@ -379,6 +381,7 @@ public class Server implements Closeable {
      * @throws IOException Should be never thrown.
      */
     public void close() throws IOException {
+        // todo close session listener
         stop();
     }
 

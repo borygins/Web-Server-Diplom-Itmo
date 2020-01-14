@@ -123,6 +123,7 @@ public class Request {
     public Session getSession(boolean create) {
         if (!containsJSIDCookie() || create) {
             session = new Session();
+            // todo make non-static
             Server.setSessions(session.getId(), session);
         } else {
             session = Server.getSessions().get(getCookieValue(SESSION_COOKIENAME));

@@ -18,7 +18,7 @@ public class Session {
     public static int SESSION_LIVETIME = 1;
     public static String SESSION_COOKIENAME = "JSESSIONID";
 
-    private Map<String, Object> sessionData;
+    private volatile Map<String, Object> sessionData;
 
     private String id;
     private LocalDateTime expire;
