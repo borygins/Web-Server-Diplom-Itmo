@@ -1,6 +1,6 @@
 package ru.ifmo.server;
 
-import ru.ifmo.server.annatation.RequestType;
+import ru.ifmo.server.annotation.RequestType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -52,18 +52,17 @@ public class ServerConfig {
     }
 
     public ServerConfig addHandler(Handler handler) {
-        RequestType requestType = null;
-        String path = "";
         try {
-            requestType = handler.getClass().getDeclaredMethod("handle", Request.class, Response.class).getDeclaredAnnotation(RequestType.class);
-            if(requestType.path() !=  null && requestType.path().length() > 0){
+            RequestType requestType = handler.getClass().getDeclaredMethod("handle", Request.class, Response.class)
+                    .getDeclaredAnnotation(RequestType.class);
+            String path = "";
+            if(requestType != null && requestType.path().length() > 0){
                 path = requestType.path();
             }
             return this.addHandler(path, handler);
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            throw new ServerException("Cannot process annotation", e);
         }
-        return this;
     }
 
     /**
@@ -74,6 +73,7 @@ public class ServerConfig {
      * @return Itself for chaining.
      */
     public ServerConfig addHandler(String path, Handler handler) {
+        // todo remove code duplicates
         RequestType requestType = null;
         try {
             requestType = handler.getClass().getDeclaredMethod("handle", Request.class, Response.class).getDeclaredAnnotation(RequestType.class);

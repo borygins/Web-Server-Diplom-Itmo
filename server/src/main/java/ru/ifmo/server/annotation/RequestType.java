@@ -1,4 +1,4 @@
-package ru.ifmo.server.annatation;
+package ru.ifmo.server.annotation;
 
 import ru.ifmo.server.HttpMethod;
 

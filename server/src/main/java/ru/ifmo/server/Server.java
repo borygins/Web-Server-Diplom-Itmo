@@ -8,11 +8,15 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,11 +60,15 @@ public class Server implements Closeable {
     private static final char SPACE = ' ';
     private static final int READER_BUF_SIZE = 1024;
 
+    private static final EnumSet<HttpMethod> SUPPORTED_METHODS = EnumSet.allOf(HttpMethod.class);
+
     private final ServerConfig config;
 
     private ServerSocket socket;
 
     private ExecutorService acceptorPool;
+
+    // private Map<String, ReflectiveHandler> reflectiveHandlers;
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
@@ -86,6 +94,7 @@ public class Server implements Closeable {
 
             Server server = new Server(config);
 
+//            initReflectiveHandlers();
             server.openConnection();
             server.startAcceptor();
 
@@ -94,6 +103,10 @@ public class Server implements Closeable {
         } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
+    }
+
+    private static void initReflectiveHandlers() {
+        // todo fill reflectiveHandlers
     }
 
     private void openConnection() throws IOException {
@@ -164,7 +177,18 @@ public class Server implements Closeable {
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        } else
+        } /*else if (reflectiveHandlers.containsKey(req.getPath())) {
+            final ReflectiveHandler hnd = reflectiveHandlers.get(req.getPath());
+
+            if (hnd.method == req.method) {
+                try {
+                    hnd.reflMethod.invoke(hnd.obj, req, resp);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    e.printStackTrace();
+                    // 500
+                }
+            } // else 404
+        }*/ else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
@@ -314,7 +338,7 @@ public class Server implements Closeable {
     }
 
     private boolean isMethodSupported(HttpMethod method) {
-        return (Arrays.stream(HttpMethod.values()).filter((q1) -> q1 == method).count() > 0) ? true : false;
+        return SUPPORTED_METHODS.contains(method);
     }
 
     private class ConnectionHandler implements Runnable {
@@ -330,5 +354,11 @@ public class Server implements Closeable {
                 }
             }
         }
+    }
+
+    private static class ReflectiveHandler {
+        private HttpMethod method;
+        private Object obj;
+        private Method reflMethod;
     }
 }

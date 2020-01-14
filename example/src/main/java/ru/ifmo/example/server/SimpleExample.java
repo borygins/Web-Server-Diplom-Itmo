@@ -1,13 +1,11 @@
 package ru.ifmo.example.server;
 
 import ru.ifmo.server.*;
-import ru.ifmo.server.annatation.RequestType;
+import ru.ifmo.server.annotation.RequestType;
 
-import java.awt.*;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 
@@ -39,6 +37,7 @@ public class SimpleExample {
         // And open it!
         String infoPage = "http://localhost:" + ServerConfig.DFLT_PORT + "/info.html";
 
+        // todo remove comment
 //        if (Desktop.isDesktopSupported()) {
 //            Desktop.getDesktop().browse(new URI(infoPage));
 //        }
