@@ -1,6 +1,7 @@
 package ru.ifmo.example.server;
 
 import ru.ifmo.server.*;
+import ru.ifmo.server.annatation.RequestType;
 
 import java.awt.*;
 import java.io.IOException;
@@ -21,8 +22,9 @@ public class SimpleExample {
         ServerConfig config = new ServerConfig()
                 .addHandler("/info.html", printHandler)
                 .addHandler("/info", printHandler)
-                .addHandler("/index", new Handler() {
+                .addHandler(  new Handler() {
                     @Override
+                    @RequestType(path = "/index", method = {HttpMethod.GET, HttpMethod.POST})
                     public void handle(Request request, Response response) throws Exception {
                         Writer writer = new OutputStreamWriter(response.getOutputStream());
                         writer.write(Http.OK_HEADER + "Hello World!");
@@ -45,8 +47,10 @@ public class SimpleExample {
 
     }
 
+
     private static class InfoHandler implements Handler {
         @Override
+        @RequestType(path = "", method = {HttpMethod.GET, HttpMethod.POST})
         public void handle(Request request, Response response) throws Exception {
             // Set correct header
             StringBuilder sb = new StringBuilder(Http.OK_HEADER);
