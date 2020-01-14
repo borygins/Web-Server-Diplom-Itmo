@@ -9,8 +9,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.rmi.server.LogStream;
+import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -198,7 +200,7 @@ public class Server implements Closeable {
                         sock.getOutputStream());
             }
 
-        } else if (!loadFile(req, resp)) {
+        } else if (!tryLoadFile(req, resp)) {
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
         }
@@ -368,38 +370,54 @@ public class Server implements Closeable {
         return MIME_BINARY;
     }
 
-    // were implement findPath? Line 165?
-    private boolean loadFile(Request req, Response resp) throws IOException {
-//        req.getPath();
-//        // todo take this path instead
-        File workDirectory = config.getWorkDirectory();
-//        String dirPath = workDirectory.getAbsolutePath();
-//        String filePath = dirPath + path;
-//        // File workDirectory = config.getWorkDirectory();
-//        File file;
-//        if (workDirectory != null) {
-//            (file = new File(workDirectory, path)).exists();
-//            resp.setContentType(findMime(file));
-//        }
-//
-//        if (workDirectory == null)
-//            return false;
-//
-        File file_ = new File(workDirectory, req.getPath());
+    private boolean tryLoadFile(Request req, Response resp) throws IOException {
+        final File workDirectory = config.getWorkDirectory();
 
-        if (file_.exists() && file_.isFile()) {
-            resp.getOutputStream().write(Files.readAllBytes(file_.toPath()));
-            resp.setContentType(findMime(file_));
-            Writer writer = new OutputStreamWriter(resp.getOutputStream());
-            writer.write(Http.OK_HEADER + file_);
-            writer.flush();
-            // write status line
-            // write headers
-            // copy from FileInputStream to resp.getOutputStream()
+        if (workDirectory != null) {
+            File file = new File(workDirectory, req.getPath());
+
+            if (!file.exists()) {
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("File {} not found", file.getAbsolutePath());
+                }
+
+                return false;
+            }
+
+            final String mime = findMime(file);
+
+            if (LOG.isDebugEnabled())
+                LOG.debug("Loading file = {}, length = {}, mime = {}", file.getAbsolutePath(), file.length(), mime);
+
+            final String head = "HTTP/1.0 200 OK" + CRLF +
+                    CONTENT_TYPE + ": " + mime + "; charset=utf-8" + CRLF +
+                    CONTENT_LENGTH + ": " + file.length() + CRLF + CRLF;
+
+            // Will be closed on socket close.
+            final OutputStream out = resp.socket.getOutputStream();
+
+            out.write(head.getBytes(StandardCharsets.UTF_8));
+
+            try (final InputStream in = new FileInputStream(file)) {
+                final byte[] buf = new byte[1024];
+
+                int len;
+                while ((len = in.read(buf)) != -1) {
+                    out.write(buf, 0, len);
+                }
+
+                out.flush();
+            }
 
             return true;
         }
 
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Working directory was not set");
+        }
+
         return false;
     }
-}
+
+
+    }

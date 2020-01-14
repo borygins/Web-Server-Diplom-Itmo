@@ -8,6 +8,7 @@ public class Http {
     public static final int SC_OK = 200;
     public static final int SC_MULTIPLE_CHOICES = 300;
     public static final int SC_BAD_REQUEST = 400;
+    public static final int SC_ACCESS_DENIED = 403;
     public static final int SC_NOT_FOUND = 404;
     public static final int SC_SERVER_ERROR = 500;
     public static final int SC_NOT_IMPLEMENTED = 501;
@@ -22,6 +23,7 @@ public class Http {
         codeTranslator[SC_OK] = "Ok";
         codeTranslator[SC_MULTIPLE_CHOICES] = "Multiple choises";
         codeTranslator[SC_BAD_REQUEST] = "Bad request";
+        codeTranslator[SC_ACCESS_DENIED] = "Access is denied";
         codeTranslator[SC_NOT_FOUND] = "Not found";
         codeTranslator[SC_SERVER_ERROR] = "Server Error";
         codeTranslator[SC_NOT_IMPLEMENTED] = "Not implemented";
