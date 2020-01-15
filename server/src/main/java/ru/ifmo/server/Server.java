@@ -177,7 +177,7 @@ public class Server implements Closeable {
         for (Map.Entry<String, String> head : response.headers.entrySet()) {
             outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
-
+        //find new destin
         if (request.getSession() != null) {
             response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
         }
