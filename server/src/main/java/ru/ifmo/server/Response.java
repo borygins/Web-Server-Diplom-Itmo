@@ -25,24 +25,18 @@ public class Response {
         this.socket = socket;
     }
 
-
     public void setCookie(Cookie cookie) {
-
         if (setCookies == null) {
             setCookies = new ArrayList<>();
         }
-
         setCookies.add(cookie);
     }
 
     public void resetCookie(Cookie cookie) {
-
         if (setCookies == null) {
             setCookies = new ArrayList<>();
         }
-
         cookie.value = " ";
-
         setCookies.add(cookie);
     }
 

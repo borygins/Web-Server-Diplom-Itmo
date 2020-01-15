@@ -92,8 +92,8 @@ public class Server implements Closeable {
         lisThread = new Thread(sessionListener);
         lisThread.start();
 
-        // todo debug
-        LOG.info("Session listener started, deleting by timeout.");
+        // done debug++
+        LOG.debug("Session listener started, deleting by timeout.");
     }
 
     /**
@@ -143,6 +143,7 @@ public class Server implements Closeable {
     public void stop() {
         acceptorPool.shutdownNow();
         Utils.closeQuiet(socket);
+        lisThread.interrupt();
 
         socket = null;
     }
@@ -193,7 +194,7 @@ public class Server implements Closeable {
                 if (cookie.domain != null) cookieline.append(";DOMAIN=" + cookie.domain);
                 if (cookie.path != null) cookieline.append(";PATH=" + cookie.path);
 
-//todo                out.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
+                outputStream.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
 
             }
         }
@@ -383,7 +384,7 @@ public class Server implements Closeable {
      * @throws IOException Should be never thrown.
      */
     public void close() throws IOException {
-        // todo close session listener
+        // done close session listener: +++ in line 146
         stop();
     }
 
