@@ -17,6 +17,7 @@ public class Response {
     PrintWriter writer;
     int length;
     ByteArrayOutputStream bout;
+    String location;
 
     Response(Socket socket) {
         this.socket = socket;
@@ -113,4 +114,14 @@ public class Response {
     public Integer getStatusCode() {
         return statusCode;
     }
+
+    public void redirect(String location) {
+        this.location = location;
+        getHeaders();
+    }
+
+    public String getLocation() {
+        return location;
+    }
 }
+
