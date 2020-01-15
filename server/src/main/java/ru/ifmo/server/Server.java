@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
 import static ru.ifmo.server.Session.SESSION_COOKIENAME;
 import static ru.ifmo.server.util.Utils.htmlMessage;
@@ -24,11 +25,11 @@ import static ru.ifmo.server.util.Utils.htmlMessage;
 /**
  * Ifmo Web Server.
  * <p>
- *     To start server use {@link #start(ServerConfig)} and register at least
- *     one handler to process HTTP requests.
- *     Usage example:
- *     <pre>
- *{@code
+ * To start server use {@link #start(ServerConfig)} and register at least
+ * one handler to process HTTP requests.
+ * Usage example:
+ * <pre>
+ * {@code
  * ServerConfig config = new ServerConfig()
  *      .addHandler("/index", new Handler() {
  *          public void handle(Request request, Response response) throws Exception {
@@ -43,8 +44,9 @@ import static ru.ifmo.server.util.Utils.htmlMessage;
  *     </pre>
  * </p>
  * <p>
- *     To stop the server use {@link #stop()} or {@link #close()} methods.
+ * To stop the server use {@link #stop()} or {@link #close()} methods.
  * </p>
+ *
  * @see ServerConfig
  */
 public class Server implements Closeable {
@@ -118,55 +120,10 @@ public class Server implements Closeable {
             server.listenSessions();
 
             return server;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
         }
     }
-
-    /**
-     * Forces any content in the buffer to be written to the client
-     */
-    private static void flushResponse(Request request, Response response) {
-
-
-        try {
-            OutputStream out = response.socket.getOutputStream();
-            for (String key : response.headers.keySet()) {
-                out.write((key + ":" + SPACE + response.headers.get(key) + CRLF).getBytes());
-            }
-
-            if (request.getSession() != null) {
-                response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
-            }
-
-            if (response.setCookies != null) {
-
-                for (Cookie cookie : response.setCookies) {
-
-                    StringBuilder cookieline = new StringBuilder();
-
-                    cookieline.append(cookie.name + "=" + cookie.value);
-                    if (cookie.maxage != null) cookieline.append(";MAX-AGE=" + cookie.maxage);
-                    if (cookie.domain != null) cookieline.append(";DOMAIN=" + cookie.domain);
-                    if (cookie.path != null) cookieline.append(";PATH=" + cookie.path);
-
-                    out.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
-
-                }
-            }
-
-            out.write(CRLF.getBytes());
-            if (response.bufferOutputStream != null)
-                out.write(response.bufferOutputStream.toByteArray());
-
-            out.flush();
-        } catch (IOException e) {
-            throw new ServerException("Cannot get output stream", e);
-        }
-
-    }
-
 
     private void openConnection() throws IOException {
         socket = new ServerSocket(config.getPort());
@@ -188,62 +145,115 @@ public class Server implements Closeable {
         socket = null;
     }
 
+    private void responseExecutor(Response response) throws IOException {
+        // status code
+        if (response.getStatusCode() == 0) {
+            response.setStatusCode(Http.SC_OK);
+        }
+
+        // create HTTP response:
+        if (response.writer != null) {
+            response.writer.flush();
+        }
+
+        long contentLength = 0;
+        // if no content length set
+        //body.length - Content-Length
+        if (response.bout != null) {
+            contentLength = response.bout.size();
+        }
+
+        // set this header
+        if (response.headers.get(CONTENT_LENGTH) == null) {
+            response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
+        }
+
+        // write all headers
+        OutputStream outputStream = response.socket.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + response.getStatusCode() + SPACE + codeTranslator[response.getStatusCode()] + CRLF).getBytes());
+
+        for (Map.Entry<String, String> head : response.headers.entrySet()) {
+            outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
+        }
+
+        if (request.getSession() != null) {
+            response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
+        }
+
+        if (response.setCookies != null) {
+
+            for (Cookie cookie : response.setCookies) {
+
+                StringBuilder cookieline = new StringBuilder();
+
+                cookieline.append(cookie.name + "=" + cookie.value);
+                if (cookie.maxage != null) cookieline.append(";MAX-AGE=" + cookie.maxage);
+                if (cookie.domain != null) cookieline.append(";DOMAIN=" + cookie.domain);
+                if (cookie.path != null) cookieline.append(";PATH=" + cookie.path);
+
+//todo                out.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
+
+            }
+        }
+
+        outputStream.write(CRLF.getBytes());
+
+        if (response.bout != null) {
+            outputStream.write(response.bout.toByteArray());
+        }
+
+        outputStream.flush();
+    }
+
     private void processConnection(Socket sock) throws IOException {
         if (LOG.isDebugEnabled())
             LOG.debug("Accepting connection on: {}", sock);
-
         Request req;
-
         try {
             req = parseRequest(sock);
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Parsed request: {}", req);
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             if (LOG.isDebugEnabled())
                 LOG.error("Malformed URL", e);
 
             respond(SC_BAD_REQUEST, "Malformed URL", htmlMessage(SC_BAD_REQUEST + " Malformed URL"),
                     sock.getOutputStream());
-
             return;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOG.error("Error parsing request", e);
 
             respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                     sock.getOutputStream());
-
             return;
         }
 
         if (!isMethodSupported(req.method)) {
             respond(SC_NOT_IMPLEMENTED, "Not Implemented", htmlMessage(SC_NOT_IMPLEMENTED + " Method \""
                     + req.method + "\" is not supported"), sock.getOutputStream());
-
             return;
         }
 
         Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
-
+        // This block doesn't work!
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-                flushResponse(req, resp);
-            }
-            catch (Exception e) {
+
+                //Create response
+                responseExecutor(resp);
+            } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
-                respond(SC_SERVER_ERROR, htmlMessage(SC_SERVER_ERROR + " Server error"), req, resp);            }
-        }
-        else
+                respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
+                        sock.getOutputStream());
+            }
+        } else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
-
-
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
@@ -259,7 +269,6 @@ public class Server implements Closeable {
 
             sb.setLength(0);
         }
-
         return req;
     }
 
@@ -298,8 +307,7 @@ public class Server implements Closeable {
                     key = query.substring(start, i);
 
                     start = i + 1;
-                }
-                else if (key != null && (query.charAt(i) == AMP || last)) {
+                } else if (key != null && (query.charAt(i) == AMP || last)) {
                     req.addArgument(key, query.substring(start, last ? i + 1 : i));
 
                     key = null;
@@ -362,16 +370,10 @@ public class Server implements Closeable {
         return count;
     }
 
-    static void respond(int code, String statusMsg, String content, OutputStream out) throws IOException {
+    private void respond(int code, String statusMsg, String content, OutputStream out) throws IOException {
         out.write(("HTTP/1.0" + SPACE + code + SPACE + statusMsg + CRLF + CRLF + content).getBytes());
         out.flush();
     }
-
-    static void respond(int code, String content, Request req, Response resp) throws IOException {
-        resp.setStatusCode(code);
-        flushResponse(req, resp);
-    }
-
 
     /**
      * Invokes {@link #stop()}. Usable in try-with-resources.
@@ -393,8 +395,8 @@ public class Server implements Closeable {
                     sock.setSoTimeout(config.getSocketTimeout());
 
                     processConnection(sock);
-                }
-                catch (Exception e) {
+
+                } catch (Exception e) {
                     if (!Thread.currentThread().isInterrupted())
                         LOG.error("Error accepting connection", e);
                 }
