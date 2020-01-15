@@ -185,12 +185,8 @@ public class   Server implements Closeable {
                     + req.method + "\" is not supported"), sock.getOutputStream());
             return;
         }
+        Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
-
-        Dispatcher dispatcher = config.getDispatcher();
-        final String path = dispatcher != null ? dispatcher.dispatch(req, resp) : req.getPath();
-
-        Handler handler = config.handler(path);
 
         // This block doesn't work!
         if (handler != null) {
