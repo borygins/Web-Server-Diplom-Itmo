@@ -3,19 +3,16 @@ package ru.ifmo.server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.ifmo.server.util.Utils;
-
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.rmi.server.LogStream;
-import java.util.Scanner;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
 
@@ -55,6 +52,7 @@ public class Server implements Closeable {
     private static final char HEADER_VALUE_SEPARATOR = ':';
     private static final char SPACE = ' ';
     private static final int READER_BUF_SIZE = 1024;
+    private static HashMap<String, String> mimeMap = new HashMap<>();
 
     private final ServerConfig config;
 
@@ -77,6 +75,7 @@ public class Server implements Closeable {
      * @see ServerConfig
      */
     public static Server start(ServerConfig config) {
+
         if (config == null)
             config = new ServerConfig();
 
@@ -115,7 +114,8 @@ public class Server implements Closeable {
 
         socket = null;
     }
-// этот метод (часть кода взял у Вадима стр 116 - 149)
+
+    // этот метод (часть кода взял у Вадима стр 116 - 149)
     static void responseProcessing(Response resp) throws IOException {
         final byte[] body = resp.bout.toByteArray();
         // status code
@@ -346,30 +346,51 @@ public class Server implements Closeable {
         }
     }
 
-    private String findMime(File file) {
-        if (file.getName().endsWith(".txt")) {
-            // todo replace with Map
-            return Http.MIME_TEXT_PLAIN;
-        } else if (file.getName().endsWith(".html") || file.getName().endsWith(".htm")) {
-            return Http.MIME_TEXT_HTML;
-        } else if (file.getName().endsWith(".js")) {
-            return Http.MIME_APPLICATION_JS;
-        } else if (file.getName().endsWith(".gif")) {
-            return Http.MIME_IMAGE_GIF;
-        } else if (file.getName().endsWith(".png")) {
-            return Http.MIME_IMAGE_PNG;
-        } else if (file.getName().endsWith(".jpeg") || file.getName().endsWith(".jpg")) {
-            return Http.MIME_IMAGE_JPEG;
-        } else if (file.getName().endsWith(".pdf")) {
-            return Http.MIME_APPLICATION_PDF;
-        } else if (file.getName().endsWith(".docx") || file.getName().endsWith(".doc")) {
-            return Http.MIME_APPLICATION_MSWORD;
-        } else if (file.getName().endsWith(".xls")) {
-            return MIME_APPLICATION_MSEXCEL;
-        }
-        return MIME_BINARY;
+    /**
+     * HashMap for mime types
+     */
+    private static void setMime() {
+        mimeMap.put(".txt", MIME_TEXT_PLAIN);
+        mimeMap.put(".htm", MIME_TEXT_HTML);
+        mimeMap.put(".js", MIME_APPLICATION_JS);
+        mimeMap.put(".gif", MIME_IMAGE_GIF);
+        mimeMap.put(".png", MIME_IMAGE_PNG);
+        mimeMap.put(".jpeg", MIME_IMAGE_JPEG);
+        mimeMap.put(".pdf", MIME_APPLICATION_PDF);
+        mimeMap.put(".docx", MIME_APPLICATION_MSWORD);
+        mimeMap.put(".xls", MIME_APPLICATION_MSEXCEL);
+
     }
 
+    private String mimeGetter(String extension) {
+        setMime();
+        try {
+            for (Map.Entry<String, String> entry : mimeMap.entrySet()) {
+                if (extension.contains(entry.getKey())) {
+                    return entry.getValue();
+                }
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
+        return String.valueOf(SC_BAD_REQUEST);
+
+    }
+
+    private String getFileExtension(String str) {
+        int index = str.indexOf(".");
+        return index == -1 ? null : str.substring(index);
+    }
+
+    private String findMime(File file) {
+
+        return mimeGetter(getFileExtension(file.getName()));
+
+    }
+/**
+ * Support for war directory with loading static content (.txt, .html, js, .png, etc.).
+ * Set properly headers, e.g. Content-Type and Content-Length. Content-Type detect by file extension.
+ */
     private boolean tryLoadFile(Request req, Response resp) throws IOException {
         final File workDirectory = config.getWorkDirectory();
 
@@ -420,4 +441,4 @@ public class Server implements Closeable {
     }
 
 
-    }
+}
