@@ -46,7 +46,7 @@ import static ru.ifmo.server.util.Utils.htmlMessage;
  *
  * @see ServerConfig
  */
-public class Server implements Closeable {
+public class   Server implements Closeable {
     private static final char LF = '\n';
     private static final char CR = '\r';
     private static final String CRLF = "" + CR + LF;
@@ -185,9 +185,13 @@ public class Server implements Closeable {
                     + req.method + "\" is not supported"), sock.getOutputStream());
             return;
         }
-
-        Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
+
+        Dispatcher dispatcher = config.getDispatcher();
+        final String path = dispatcher != null ? dispatcher.dispatch(req, resp) : req.getPath();
+
+        Handler handler = config.handler(path);
+
         // This block doesn't work!
         if (handler != null) {
             try {

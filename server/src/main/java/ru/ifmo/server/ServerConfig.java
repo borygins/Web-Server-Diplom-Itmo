@@ -13,6 +13,7 @@ public class ServerConfig {
     private int port = DFLT_PORT;
     private Map<String, Handler> handlers;
     private int socketTimeout;
+    private Dispatcher dispatcher;
 
     public ServerConfig() {
         handlers = new HashMap<>();
@@ -115,6 +116,14 @@ public class ServerConfig {
                 "port=" + port +
                 ", handlers=" + handlers +
                 ", socketTimeout=" + socketTimeout +
+                ", dispatcher=" + dispatcher +
                 '}';
+    }
+    public ServerConfig setDispatcher(Dispatcher dispatcher) {
+        this.dispatcher = dispatcher;
+        return this;
+    }
+    public Dispatcher getDispatcher() {
+        return dispatcher;
     }
 }
