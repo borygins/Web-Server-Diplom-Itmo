@@ -15,6 +15,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.net.URI;
+import java.util.logging.Handler;
 
 import static org.junit.Assert.*;
 import static ru.ifmo.server.TestUtils.*;
@@ -36,7 +37,8 @@ public class ServerTest {
     public static void initialize() {
         ServerConfig cfg = new ServerConfig()
                 .addHandler(SUCCESS_URL, new SuccessHandler())
-                .addHandler(SERVER_ERROR_URL, new FailHandler());
+                .addHandler(SERVER_ERROR_URL, new FailHandler())
+                .addHandler(DispatcherTest.DISPATCHED_URL, new SuccessHandler());
 
         server = Server.start(cfg);
         client = HttpClients.createDefault();
