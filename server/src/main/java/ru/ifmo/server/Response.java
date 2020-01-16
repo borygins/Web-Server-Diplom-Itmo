@@ -18,6 +18,7 @@ public class Response {
     int length;
     ByteArrayOutputStream bout;
     String location;
+    String header;
 
     Response(Socket socket) {
         this.socket = socket;
@@ -115,9 +116,10 @@ public class Response {
         return statusCode;
     }
 
-    public void redirect(String location) {
+    public void redirect(String location, String header) {
         this.location = location;
-        getHeaders();
+        this.header = header;
+        setHeader(location, header);
     }
 
     public String getLocation() {

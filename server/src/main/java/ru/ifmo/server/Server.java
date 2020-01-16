@@ -139,6 +139,10 @@ public class   Server implements Closeable {
             response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
         }
 
+        if (response.headers.containsKey(response.getLocation())){
+            response.setStatusCode(SC_REDIRECT);
+        }
+
         // write all headers
         OutputStream outputStream = response.socket.getOutputStream();
         outputStream.write(("HTTP/1.0" + SPACE + response.getStatusCode() + SPACE + codeTranslator[response.getStatusCode()] + CRLF).getBytes());

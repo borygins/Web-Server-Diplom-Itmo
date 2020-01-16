@@ -26,6 +26,7 @@ public class Http {
         codeTranslator[SC_NOT_FOUND] = "Not found";
         codeTranslator[SC_SERVER_ERROR] = "Server Error";
         codeTranslator[SC_NOT_IMPLEMENTED] = "Not implemented";
+        codeTranslator[SC_REDIRECT] = "Redirect";
     }
 
     /**
