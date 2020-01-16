@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static ru.ifmo.server.Session.SESSION_COOKIENAME;
 
 /**
@@ -21,14 +23,17 @@ public class Request {
     HttpMethod method;
     URI path;
 
+
+    private Map<String, Cookie> cookies;
+    private Session session;
+    private final Map<String, Session> sessions;
     Map<String, String> headers;
     Map<String, String> args;
-    private Map<String, String> cookies;
 
-    private Session session;
 
-    Request(Socket socket) {
+    Request(Socket socket, Map<String, Session> sessions) {
         this.socket = socket;
+        this.sessions = sessions;
     }
 
     /**
@@ -88,52 +93,41 @@ public class Request {
         return Collections.unmodifiableMap(args);
     }
 
-    void insertCookie(String name, String value) {
-        if (cookies == null) {
+    void mapCookie(String name, Cookie cookie) {
+        if (cookies == null){
             cookies = new HashMap<>();
         }
-        cookies.put(name, value);
+        cookies.put(name, cookie);
     }
-
-    public Map<String, String> getCookies() {
-
+    public Map<String, Cookie> getCookies() {
         if (getHeaders().get("Cookie") == null) {
-            return Collections.emptyMap();
+            return emptyMap();
         }
-
-        return Collections.unmodifiableMap(cookies);
+        return unmodifiableMap(cookies);
     }
-
-    public String getCookieValue(String cookiename) {
-
-        return getCookies().get(cookiename);
-    }
-
-    private boolean containsJSIDCookie() {
-        return getCookies().containsKey(SESSION_COOKIENAME);
+    public String getCookieValue(String key) {
+        return cookies.get(key).getValue();
     }
 
     public Session getSession() {
         if (session == null) {
-            session = getSession(false);
+            session = getSession(false); //сначала проверим, нет ли в cookie id открытой сессии
         }
         return session;
     }
 
-    public Session getSession(boolean create) {
-        if (!containsJSIDCookie() || create) {
+    public Session getSession(boolean open) {
+        if (!getCookies().containsKey(SESSION_COOKIENAME) || open) {
             session = new Session();
-            // todo make non-static
-            Server.setSessions(session.getId(), session);
+            sessions.put(session.getId(), session);
         } else {
-            session = Server.getSessions().get(getCookieValue(SESSION_COOKIENAME));
+            session = sessions.get(getCookieValue(SESSION_COOKIENAME)); //проверим, точно ли ещё есть на сервере
             if (session == null) {
                 session = getSession(true);
             }
         }
         return session;
     }
-
     @Override
     public String toString() {
         return "Request{" +

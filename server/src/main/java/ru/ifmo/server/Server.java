@@ -60,14 +60,10 @@ public class Server implements Closeable {
     private static final int READER_BUF_SIZE = 1024;
 
     private final ServerConfig config;
-
     private ServerSocket socket;
-
     private ExecutorService acceptorPool;
-
-    // todo non-static
-    private static Map<String, Session> sessions = new ConcurrentHashMap<>();
     private Thread lisThread;
+    private static Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
@@ -88,7 +84,7 @@ public class Server implements Closeable {
     }
 
     private void listenSessions() throws IOException {
-        SessionListener sessionListener = new SessionListener();
+        SessionListener sessionListener = new SessionListener(sessions);
         lisThread = new Thread(sessionListener);
         lisThread.start();
 
@@ -148,7 +144,7 @@ public class Server implements Closeable {
         socket = null;
     }
 
-    private void responseExecutor(Response response) throws IOException {
+    private void responseExecutor(Response response, Request request) throws IOException {
         // status code
         if (response.getStatusCode() == 0) {
             response.setStatusCode(Http.SC_OK);
@@ -178,30 +174,29 @@ public class Server implements Closeable {
         for (Map.Entry<String, String> head : response.headers.entrySet()) {
             outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
-        //find new destin
-        if (request.getSession() != null) {
-            response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
-        }
 
-        if (response.setCookies != null) {
+        response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
 
-            for (Cookie cookie : response.setCookies) {
-
-                StringBuilder cookieline = new StringBuilder();
-
-                cookieline.append(cookie.name + "=" + cookie.value);
-                if (cookie.maxage != null) cookieline.append(";MAX-AGE=" + cookie.maxage);
-                if (cookie.domain != null) cookieline.append(";DOMAIN=" + cookie.domain);
-                if (cookie.path != null) cookieline.append(";PATH=" + cookie.path);
-
-                outputStream.write(("Set-Cookie:" + SPACE + cookieline.toString() + CRLF).getBytes());
-
+        for (Map.Entry<String, Cookie> entry : response.setCookies.entrySet()) {
+            StringBuilder cookieLine = new StringBuilder();
+            cookieLine.append(entry.getKey()).append("=").append(entry.getValue().getValue());
+            if (entry.getValue().getMaxAge() != 0) {
+                cookieLine.append(";Max-Age=").append(entry.getValue().getMaxAge());
             }
+            if (entry.getValue().getDomain() != null) {
+                cookieLine.append(";DOMAIN=").append(entry.getValue().getDomain());
+            }
+            if (entry.getValue().getPath() != null) {
+                cookieLine.append(";PATH=").append(entry.getValue().getPath());
+            }
+            outputStream.write(("Set-Cookie:" + SPACE + cookieLine.toString() + CRLF).getBytes());
         }
+
 
         outputStream.write(CRLF.getBytes());
 
         if (response.bout != null) {
+            System.out.println(response.bout.toString());
             outputStream.write(response.bout.toByteArray());
         }
 
@@ -246,7 +241,7 @@ public class Server implements Closeable {
                 handler.handle(req, resp);
 
                 //Create response
-                responseExecutor(resp);
+                responseExecutor(resp, req);
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
@@ -261,7 +256,7 @@ public class Server implements Closeable {
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
 
-        Request req = new Request(socket);
+        Request req = new Request(socket, sessions);
         StringBuilder sb = new StringBuilder(READER_BUF_SIZE); // TODO
 
         while (readLine(reader, sb) > 0) {
@@ -325,28 +320,24 @@ public class Server implements Closeable {
 
     private void parseHeader(Request req, StringBuilder sb) {
         String key = null;
-
         int len = sb.length();
         int start = 0;
 
         for (int i = 0; i < len; i++) {
             if (sb.charAt(i) == HEADER_VALUE_SEPARATOR) {
                 key = sb.substring(start, i).trim();
-
                 start = i + 1;
-
                 break;
             }
         }
-
         req.addHeader(key, sb.substring(start, len).trim());
 
-        if (key.equals("Cookie")) {
+        if ("Cookie".equals(key)) {
             String[] pairs = sb.substring(start, len).trim().split("; ");
             for (int i = 0; i < pairs.length; i++) {
                 String pair = pairs[i];
                 String[] keyValue = pair.split("=");
-                req.insertCookie(keyValue[0], keyValue[1]);
+                req.mapCookie(keyValue[0], new Cookie(keyValue[0], keyValue[1]));
             }
         }
     }
@@ -354,22 +345,17 @@ public class Server implements Closeable {
     private int readLine(InputStreamReader in, StringBuilder sb) throws IOException {
         int c;
         int count = 0;
-
         while ((c = in.read()) >= 0) {
             if (c == LF)
                 break;
-
             sb.append((char) c);
-
             count++;
         }
-
         if (count > 0 && sb.charAt(count - 1) == CR)
             sb.setLength(--count);
 
         if (LOG.isTraceEnabled())
             LOG.trace("Read line: {}", sb.toString());
-
         return count;
     }
 

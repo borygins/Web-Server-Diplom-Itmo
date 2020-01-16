@@ -14,92 +14,60 @@ import java.util.Map;
 public class Response {
     final Socket socket;
     int statusCode;
-    Map<String, String> headers = new HashMap<>();
+    Map<String, String> headers;
     PrintWriter writer;
-    int length;
     ByteArrayOutputStream bout;
-    List<Cookie> setCookies;
+    Map<String, Cookie> setCookies;
 
 
     Response(Socket socket) {
         this.socket = socket;
     }
 
+    public void setHeaders(Map<String, String> headers) {
+        getHeaders().putAll(headers);
+    }
+    /**
+     * Возвращает хэдеры в Map (http с именем и значением)
+     */
+    public Map<String, String> getHeaders() {
+        if(headers == null){
+            headers = new HashMap<>();}
+        return headers;
+    }
+    /**
+     * Метод возвращает код состояния HTTP (current response)
+     *     * @return int http status code
+     */
+    public Integer getStatusCode() {
+        return statusCode;
+    }
+
     public void setCookie(Cookie cookie) {
         if (setCookies == null) {
-            setCookies = new ArrayList<>();
+            setCookies = new HashMap<>();
         }
-        setCookies.add(cookie);
-    }
-
-    public void resetCookie(Cookie cookie) {
-        if (setCookies == null) {
-            setCookies = new ArrayList<>();
-        }
-        cookie.value = " ";
-        setCookies.add(cookie);
-    }
-
-
-    /**
-     * @return {@link OutputStream} connected to the client.
-     */
-    public ByteArrayOutputStream getOutputStream() {
-        if (bout == null)
-            bout = new ByteArrayOutputStream(1024);
-
-        return bout;
-    }
-
-    /**
-     * @return Content-Length
-     * @info Возвращает длину content body in the response In HTTP servlets.
-     */
-    public long getContentLength() {
-        return length;
-    }
-
-    /**
-     * @info Задает длину тела содержимого в ответе В сервлете HTTP этот метод задает заголовок HTTP Content-Length.
-     */
-    public void setContentLength(int length) {
-        setHeader(Http.CONTENT_LENGTH, String.valueOf(length));
-        this.length = length;
-    }
-
-    /**
-     * @info Задает тип содержимого ответа, отправляемого клиенту, если ответ еще не зафиксирован.
-     * Данный тип контента может включать в себя спецификацию кодирования символов, например, текст/html; charset = UTF-8.
-     * Кодировка символов ответа устанавливается из данного типа контента только в том случае, если этот метод вызывается до вызова getWriter.
-     */
-    public void setContentType(String type) {
-        setHeader(Http.CONTENT_TYPE, type);
-    }
-
-    /**
-     * Возвращает объект PrintWriter, который может отправлять клиенту поток.
-     */
-    public PrintWriter getWriter() {
-        if (writer == null)
-            writer = new PrintWriter(getOutputStream());
-        return writer;
+        setCookies.put(cookie.getKey(), cookie);
     }
 
     /**
      * Добавляет заголовок response HTTP с указанным именем и значением.
      *
-     * @param name  name header
-     * @param value String value header
+     * @param key  name header
+     * @param val String value header
      */
-    public void setHeader(String name, String value) {
-        headers.put(name, value);
+    public void setHeader(String key, String val) {
+        if (headers == null) {
+            headers = new HashMap<>();
+        }
+        headers.put(key, val);
     }
 
-    /**
-     * Возвращает хэдеры в Map (http с именем и значением)
-     */
-    private Map<String, String> getHeaders() {
-        return new HashMap<>(headers);
+    public void resetCookie(Cookie cookie) {
+        if (setCookies == null) {
+            setCookies = new HashMap<>();
+        }
+        setCookies.put(" ", cookie);
     }
 
     /**
@@ -107,9 +75,6 @@ public class Response {
      *
      * @param headers map name and value
      */
-    public void setHeaders(Map<String, String> headers) {
-        getHeaders().putAll(headers);
-    }
 
     /**
      * Этот метод задает код состояния HTTP
@@ -120,16 +85,24 @@ public class Response {
         if (code < Http.SC_CONTINUE || code > Http.SC_NOT_IMPLEMENTED) {
             throw new ServerException("Invalid Status Code " + code);
         }
-
         statusCode = code;
     }
-
     /**
-     * Метод возвращает код состояния HTTP (current response)
-     *
-     * @return int http status code
+     * @return {@link OutputStream} connected to the client.
      */
-    public Integer getStatusCode() {
-        return statusCode;
+    public ByteArrayOutputStream getOutputStream() {
+        if (bout == null) {
+            bout = new ByteArrayOutputStream(1024);
+        }
+        return bout;
+    }
+    /**
+     * Возвращает объект PrintWriter, который может отправлять клиенту поток.
+     */
+    public PrintWriter getWriter() {
+        if (writer == null) {
+            writer = new PrintWriter(getOutputStream());
+        }
+        return writer;
     }
 }
