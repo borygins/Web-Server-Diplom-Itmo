@@ -13,8 +13,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
+import static ru.ifmo.server.util.Utils.htmlMessage;
 
 /**
  * Ifmo Web Server.
@@ -115,47 +115,50 @@ public class Server implements Closeable {
         socket = null;
     }
 
-    // этот метод (часть кода взял у Вадима стр 116 - 149)
-    static void responseProcessing(Response resp) throws IOException {
-        final byte[] body = resp.bout.toByteArray();
+    private void responseExecutor(Response response) throws IOException {
         // status code
-        final int statusCode = resp.getStatusCode();
-        resp.setStatusCode(statusCode);
+        if (response.getStatusCode() == 0) {
+            response.setStatusCode(Http.SC_OK);
+        }
+
+        // create HTTP response:
+        if (response.writer != null) {
+            response.writer.flush();
+        }
+
         long contentLength = 0;
         // if no content length set
         //body.length - Content-Length
-        if (resp.getOutputStream() != null) {
-            resp.getOutputStream().flush();
-            contentLength = resp.getContentLength();
+        if (response.bout != null) {
+            contentLength = response.bout.size();
         }
-        // create HTTP response:
-        if (resp.getWriter() != null) {
-            resp.getWriter().flush();
-        }
+
         // set this header
-        if (resp.headers.get(CONTENT_LENGTH) == null) {
-            resp.setHeader(CONTENT_LENGTH, (String.valueOf(contentLength)));
+        if (response.headers.get(CONTENT_LENGTH) == null) {
+            response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
         }
 
         // write all headers
-        OutputStream outputStream = resp.getOutputStream();
-        outputStream.write(("HTTP/1.0" + SPACE + statusCode + SPACE + codeTranslator[statusCode] + CRLF).getBytes());
-        for (String head : resp.headers.keySet()) {
-            outputStream.write((head + ":" + SPACE + resp.headers.get(head) + CRLF).getBytes());
+        OutputStream outputStream = response.socket.getOutputStream();
+        outputStream.write(("HTTP/1.0" + SPACE + response.getStatusCode() + SPACE + codeTranslator[response.getStatusCode()] + CRLF).getBytes());
+
+        for (Map.Entry<String, String> head : response.headers.entrySet()) {
+            outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
+
         outputStream.write(CRLF.getBytes());
-        if (resp.bout != null) {
-            outputStream.write(resp.bout.toByteArray());
+
+        if (response.bout != null) {
+            outputStream.write(response.bout.toByteArray());
         }
+
         outputStream.flush();
     }
 
     private void processConnection(Socket sock) throws IOException {
         if (LOG.isDebugEnabled())
             LOG.debug("Accepting connection on: {}", sock);
-
         Request req;
-
         try {
             req = parseRequest(sock);
 
@@ -167,21 +170,18 @@ public class Server implements Closeable {
 
             respond(SC_BAD_REQUEST, "Malformed URL", htmlMessage(SC_BAD_REQUEST + " Malformed URL"),
                     sock.getOutputStream());
-
             return;
         } catch (Exception e) {
             LOG.error("Error parsing request", e);
 
             respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                     sock.getOutputStream());
-
             return;
         }
 
         if (!isMethodSupported(req.method)) {
             respond(SC_NOT_IMPLEMENTED, "Not Implemented", htmlMessage(SC_NOT_IMPLEMENTED + " Method \""
                     + req.method + "\" is not supported"), sock.getOutputStream());
-
             return;
         }
 
@@ -191,11 +191,12 @@ public class Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-                responseProcessing(resp);
+
+                //Create response
+                responseExecutor(resp);
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
-
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
@@ -220,7 +221,6 @@ public class Server implements Closeable {
 
             sb.setLength(0);
         }
-
         return req;
     }
 

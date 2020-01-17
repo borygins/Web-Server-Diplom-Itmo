@@ -33,7 +33,6 @@ public class Http {
      * OK header that preceded rest response data.
      */
     public static final String OK_HEADER = "HTTP/1.0 200 OK\r\n\r\n";
-    //todo Map with MineType (replace from Server str 310)
     //getMimeType, список типов
     //octet-stream - двоичный файл без указания формата (https://ru.wikipedia.org/wiki/%D0%A1%D0%BF%D0%B8%D1%81%D0%BE%D0%BA_MIME-%D1%82%D0%B8%D0%BF%D0%BE%D0%B2)
     public static final String MIME_BINARY = "application/octet-stream";

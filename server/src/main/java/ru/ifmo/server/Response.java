@@ -1,7 +1,6 @@
 package ru.ifmo.server;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -13,10 +12,10 @@ import java.util.Map;
  */
 public class Response {
     final Socket socket;
-    private int statusCode;
-    public Map<String, String> headers = new HashMap<>();
-    private PrintWriter writer;
-    private long length;
+    int statusCode;
+    Map<String, String> headers = new HashMap<>();
+    PrintWriter writer;
+    int length;
     ByteArrayOutputStream bout;
 
     Response(Socket socket) {
@@ -26,8 +25,8 @@ public class Response {
     /**
      * @return {@link OutputStream} connected to the client.
      */
-    public OutputStream getOutputStream() {
-        if (bout != null)
+    public ByteArrayOutputStream getOutputStream() {
+        if (bout == null)
             bout = new ByteArrayOutputStream(1024);
 
         return bout;
@@ -44,7 +43,7 @@ public class Response {
     /**
      * @info Задает длину тела содержимого в ответе В сервлете HTTP этот метод задает заголовок HTTP Content-Length.
      */
-    public void setContentLength(long length) {
+    public void setContentLength(int length) {
         setHeader(Http.CONTENT_LENGTH, String.valueOf(length));
         this.length = length;
     }
@@ -68,21 +67,6 @@ public class Response {
     }
 
     /**
-     * Set body
-     *
-     * @param data - byte array to set body
-     */
-    // todo remove
-    @Deprecated
-    public void setBody(byte[] data) {
-        try {
-            getOutputStream().write(data);
-        } catch (IOException e) {
-            throw new ServerException("Cannot get output stream", e);
-        }
-    }
-
-    /**
      * Добавляет заголовок response HTTP с указанным именем и значением.
      *
      * @param name  name header
@@ -96,9 +80,6 @@ public class Response {
      * Возвращает хэдеры в Map (http с именем и значением)
      */
     private Map<String, String> getHeaders() {
-        if (headers == null) {
-            headers = new HashMap<>();
-        }
         return new HashMap<>(headers);
     }
 
@@ -119,9 +100,9 @@ public class Response {
     public void setStatusCode(int code) {
         if (code < Http.SC_CONTINUE || code > Http.SC_NOT_IMPLEMENTED) {
             throw new ServerException("Invalid Status Code " + code);
-        } else {
-            statusCode = code;
         }
+
+        statusCode = code;
     }
 
     /**

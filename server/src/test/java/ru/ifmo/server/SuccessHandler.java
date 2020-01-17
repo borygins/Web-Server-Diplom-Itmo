@@ -1,7 +1,5 @@
 package ru.ifmo.server;
 
-import static ru.ifmo.server.Http.OK_HEADER;
-
 /**
  * Responds with OK status code, test text in body and parsed params.
  */
@@ -13,8 +11,9 @@ public class SuccessHandler implements Handler {
 
     @Override
     public void handle(Request request, Response response) throws Exception {
-        response.getOutputStream().write((OK_HEADER + TEST_RESPONSE +
-                "<br>" + request.getArguments() + CLOSE_HTML).getBytes());
+        response.getWriter().write(TEST_RESPONSE);
+        response.getWriter().write("<br>" + request.getArguments());
+        response.getWriter().write(CLOSE_HTML);
         response.getOutputStream().flush();
     }
 }
