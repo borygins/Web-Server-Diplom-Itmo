@@ -199,6 +199,7 @@ public class   Server implements Closeable {
 
                 if(resp.getLocation()!=null){
                     resp.setStatusCode(SC_REDIRECT);
+                    resp.redirect("/location");
                 }
 
                 //Create response

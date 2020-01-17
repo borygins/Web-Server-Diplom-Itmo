@@ -7,6 +7,8 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 
+import static ru.ifmo.server.Http.SC_REDIRECT;
+
 /**
  * Provides {@link java.io.OutputStream} ro respond to client.
  */
@@ -18,7 +20,6 @@ public class Response {
     int length;
     ByteArrayOutputStream bout;
     String location;
-    String header;
 
     Response(Socket socket) {
         this.socket = socket;
@@ -116,10 +117,10 @@ public class Response {
         return statusCode;
     }
 
-    public void redirect(String location, String header) {
+    public void redirect(String location) {
         this.location = location;
-        this.header = header;
-        setHeader(location, header);
+        setStatusCode(SC_REDIRECT);
+        setHeader("location" , "http://localhost:8080/test");
     }
 
     public String getLocation() {
