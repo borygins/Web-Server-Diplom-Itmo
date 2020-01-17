@@ -20,7 +20,7 @@ public class Session {
     /**
      * Session cookie common name & session lifetime in minutes
      */
-    public static int SESSION_LIVETIME = 1;
+    public static int SESSION_LIVETIME = 10;
     public static String SESSION_COOKIENAME = "JSESSIONID";
 
     private volatile Map<String, Object> sessionData;
@@ -39,7 +39,7 @@ public class Session {
     }
 
     public synchronized void setExpire(int minutes) {
-        this.expire = LocalDateTime.now().plusSeconds(minutes);
+        this.expire = LocalDateTime.now().plusMinutes(minutes);
     }
 
     public void setExpired(boolean expired) {

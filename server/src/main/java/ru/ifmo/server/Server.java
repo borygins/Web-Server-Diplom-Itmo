@@ -175,7 +175,9 @@ public class Server implements Closeable {
             outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
 
-        response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
+        if (request.getSession() != null) {
+            response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
+        }
 
         for (Map.Entry<String, Cookie> entry : response.setCookies.entrySet()) {
             StringBuilder cookieLine = new StringBuilder();
