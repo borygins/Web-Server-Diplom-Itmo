@@ -204,6 +204,8 @@ public class Server implements Closeable {
         } else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
+        Parser.requestParser(req, resp);
+        Parser.responseParser(resp.bout.toString(), resp.getStatusCode());
     }
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
