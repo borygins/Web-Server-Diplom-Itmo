@@ -15,11 +15,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 
 public abstract class AServer implements IServer {
 
@@ -28,41 +26,57 @@ public abstract class AServer implements IServer {
     protected ServerSocket serverSocket;
     protected final boolean startServer;
     protected ArrayList<ByteBuffer> buf;
-    protected static final Queue<Selector> queSelector = new ConcurrentLinkedQueue<>();
+    protected final Map<String, Queue<Selector>> queSelector = new HashMap<>();
+    protected final String typeClass;
     protected static IHistoryQuery historyQuery;
 
-    public static IServer serverFabric(IConfig config, ConfigIPServer configIPServer){
-        return (configIPServer.isSsl()) ? new ServerSSL(true, config, configIPServer) : new Server(true, config, configIPServer, true);
+    public static IServer serverFabric(IConfig config, ConfigIPServer configIPServer, boolean createServ) {
+        if (configIPServer.isSsl()) {
+            if(createServ) {
+                return new ServerSSL(true, config, configIPServer);
+            } else {
+                return new ServerSSL(false, config, null);
+            }
+
+        } else {
+            if(createServ) {
+               return new Server(true, config, configIPServer, true);
+            } else {
+              return  new Server(false, config, null, true);
+            }
+        }
     }
-    
+
 
     /**
      * Конструктор.
-     * @param startServer Если true, то при вызове метода start() будет добавлен в селектор сервер.
-     * @param config конфигурация сервера.
+     *
+     * @param startServer  Если true, то при вызове метода start() будет добавлен в селектор сервер.
+     * @param config       конфигурация сервера.
      * @param createBuffer условие на создание массива буферов.
      */
     public AServer(boolean startServer, IConfig config, ConfigIPServer configIPServer, boolean createBuffer) {
         this.startServer = startServer;
         this.config = config;
+        this.typeClass = getClass().getTypeName();
 
-        if(createBuffer)
+        if (createBuffer)
             this.createBuf(config.getCountBuf(), config.getSizeBuf());
 
         try {
-            if (!startServer) {
-                this.selector = Selector.open();
-                queSelector.offer(this.selector);
-            } else {
-                this.selector = Selector.open();
-                queSelector.offer(this.selector);
+            this.selector = Selector.open();
+            if(!queSelector.containsKey(typeClass)){
+                queSelector.put(typeClass, new ConcurrentLinkedQueue<>());
+            }
+            queSelector.get(typeClass).offer(this.selector);
+            if (startServer) {
 
                 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
                 serverSocketChannel.configureBlocking(false);
                 this.serverSocket = serverSocketChannel.socket();
                 this.serverSocket.bind(configIPServer.getIpServer());
                 serverSocketChannel.register(this.selector, SelectionKey.OP_ACCEPT);
-                if(getLogger().isInfoEnabled()){
+                if (getLogger().isInfoEnabled()) {
                     getLogger().info("Выполнен запуск и регистрация канала " + this.serverSocket.toString());
                 }
             }
@@ -75,6 +89,7 @@ public abstract class AServer implements IServer {
 
     /**
      * Метод для добавления реализации объекта хренияния истории соединения.
+     *
      * @param newHistoryQuery реализация хранения истории соединий для подбора ip-адреса сервера для передачи данных.
      */
     @Override
@@ -89,8 +104,8 @@ public abstract class AServer implements IServer {
     @Override
     public void start() {
 
-        if(getLogger().isInfoEnabled()){
-            if(this.startServer) {
+        if (getLogger().isInfoEnabled()) {
+            if (this.startServer) {
                 getLogger().info("Запуск главного потока");
             } else {
                 getLogger().info("Запуск следующего потока");
@@ -131,14 +146,27 @@ public abstract class AServer implements IServer {
         }
     }
 
+    @Override
+    public ByteBuffer getBuffer(IIdConnect idConnect) {
+        ByteBuffer buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+        buf.clear();
+        return buf;
+    }
+
+    @Override
+    public void addBuffer(IIdConnect idConnect, ByteBuffer byteBuffer) {
+        this.buf.add(byteBuffer);
+    }
+
     /**
      * Метод обработки входящих соединений.
+     *
      * @param key ключ из выборки селектора
      */
     @Override
     public void acceptable(SelectionKey key) {
-        Selector selectorTemp = queSelector.poll();
-        queSelector.offer(selectorTemp);
+        Selector selectorTemp = queSelector.get(typeClass).poll();
+        queSelector.get(typeClass).offer(selectorTemp);
         try {
             Socket socket = this.serverSocket.accept();
 
@@ -161,7 +189,6 @@ public abstract class AServer implements IServer {
     }
 
     /**
-     *
      * @param key
      * @param client
      * @param selectorTemp
@@ -170,26 +197,26 @@ public abstract class AServer implements IServer {
      */
     protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws IOException {
 
-            SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
+        SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
 
-            //Проверяем на существование идентификатора. Если его нет, создаем.
-            IIdConnect idConnect = (IIdConnect) key.attachment();
-            if (idConnect == null) {
-                idConnect = new IdConnect();
-                idConnect.setClient(true);
-                idConnect.setInverseConnect(new IdConnect());
-                idConnect.setClientConnection((InetSocketAddress) client.getRemoteAddress());
-                idConnect.getInverseConnect().setInverseConnect(idConnect);
-                idConnect.getInverseConnect().setServer(true);
-                idConnect.setSelectionKey(selectionKeyClient);
-                selectionKeyClient.attach(idConnect);
-            }
+        //Проверяем на существование идентификатора. Если его нет, создаем.
+        IIdConnect idConnect = (IIdConnect) key.attachment();
+        if (idConnect == null) {
+            idConnect = new IdConnect();
+            idConnect.setClient(true);
+            idConnect.setInverseConnect(new IdConnect());
+            idConnect.setClientConnection((InetSocketAddress) client.getRemoteAddress());
+            idConnect.getInverseConnect().setInverseConnect(idConnect);
+            idConnect.getInverseConnect().setServer(true);
+            idConnect.setSelectionKey(selectionKeyClient);
+            selectionKeyClient.attach(idConnect);
+        }
 
-            if (!this.selector.equals(selectorTemp)) {
-                selectorTemp.wakeup();
-            }
+        if (!this.selector.equals(selectorTemp)) {
+            selectorTemp.wakeup();
+        }
 
-            return idConnect;
+        return idConnect;
     }
 
     protected abstract ResultCheckSSL checkSSL(SocketChannel socketChannel, boolean typeClientMode);
@@ -198,10 +225,10 @@ public abstract class AServer implements IServer {
 
     @Override
     public void findHost(IIdConnect idConnect, ByteBuffer sharedBuffer) throws NotHostException {
-        if(idConnect.isClient() && idConnect.getHostConnection() == null) {
+        if (idConnect.isClient() && idConnect.getHostConnection() == null) {
             idConnect.setHostConnection(historyQuery.getHostConnection(sharedBuffer));
             idConnect.setHostConnection(historyQuery.find(idConnect.getClientConnection(), idConnect.getHostConnectionToString(), false));
-        }  else if(idConnect.isServer()) {
+        } else if (idConnect.isServer()) {
             idConnect.setHostConnection(historyQuery.find(idConnect.getInverseConnect().getHostConnection(), idConnect.getInverseConnect().getHostConnectionToString(), true));
         }
         idConnect.getInverseConnect().setHostConnection(idConnect.getHostConnection());
@@ -209,6 +236,7 @@ public abstract class AServer implements IServer {
 
     /**
      * Метод обработки входящих данных.
+     *
      * @param key ключ из выборки селектора
      */
     @Override
@@ -225,25 +253,26 @@ public abstract class AServer implements IServer {
             idConnect.getInverseConnect().addBuf(sharedBuffer);
             sharedBuffer.flip();
 
-            if(idConnect.getInverseConnect().getSelectionKey() == null) {
-                SocketChannel writer = SocketChannel.open();
-                writer.configureBlocking(false);
-                writer.connect(idConnect.getHostConnection());
-                SelectionKey keyWriter = writer.register(key.selector(), socketChannel.validOps(), idConnect.getInverseConnect());
-                idConnect.getInverseConnect().setSelectionKey(keyWriter);
+            if (idConnect.getInverseConnect().getSelectionKey() == null) {
+//                SocketChannel writer = SocketChannel.open();
+//                writer.configureBlocking(false);
+//                writer.connect(idConnect.getHostConnection());
+//                SelectionKey keyWriter = writer.register(key.selector(), socketChannel.validOps(), idConnect.getInverseConnect());
+//                idConnect.getInverseConnect().setSelectionKey(keyWriter);
+                idConnect.getInverseConnect().setSelectionKey(
+                this.createConnectToServ(key.selector(), idConnect.getInverseConnect(),idConnect.getHostConnection()));
             } else {
-                idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps() & ~SelectionKey.OP_READ);
+                idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
             }
-            if(!closeSelectionKey)
+            if (!closeSelectionKey)
                 return ServerReadStatus.EXIT;
         }
 
         if (closeSelectionKey) {
             idConnect.getInverseConnect().setStopConnect(true);
-            if(idConnect.getInverseConnect() != null && idConnect.getInverseConnect().getSelectionKey() != null)
+            if (idConnect.getInverseConnect() != null && idConnect.getInverseConnect().getSelectionKey() != null)
                 idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
-            sharedBuffer.clear();
-            this.buf.add(sharedBuffer);
+            this.addBuffer(idConnect, sharedBuffer);
             this.close(key);
             return ServerReadStatus.EXIT;
         }
@@ -259,13 +288,14 @@ public abstract class AServer implements IServer {
 
     /**
      * Метод обработки исходящих соединений, в данном случае канал для соединения с сервером.
+     *
      * @param key ключ из выборки селектора
      */
     @Override
     public abstract void writable(SelectionKey key);
 
-    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel){
-        if(sharedBuffer == null){
+    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel, IIdConnect idConnect) {
+        if (sharedBuffer == null) {
             key.interestOps(socketChannel.validOps() & ~SelectionKey.OP_WRITE);
             return ServerWriteStatus.EXIT;
         }
@@ -275,19 +305,28 @@ public abstract class AServer implements IServer {
                 socketChannel.write(sharedBuffer);
             }
             sharedBuffer.rewind();
-            this.buf.add(sharedBuffer);
+            this.addBuffer(idConnect, sharedBuffer);
         } catch (IOException e) {
             e.printStackTrace();
+            try {
+                if(idConnect.isServer())
+                idConnect.setSelectionKey(
+                        createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
+
         return ServerWriteStatus.CONTINUE;
     }
 
     /**
      * Метод обработки исходящих соединений, в данном случае канал для соединения с сервером.
+     *
      * @param key ключ из выборки селектора
      */
     @Override
-    public void connectable(SelectionKey key)  {
+    public void connectable(SelectionKey key) {
         SocketChannel socketChannel = (SocketChannel) key.channel();
         IIdConnect idConnect = (IIdConnect) key.attachment();
 
@@ -303,16 +342,20 @@ public abstract class AServer implements IServer {
             }
             this.close(key);
 
-            SocketChannel writer = null;
+//            SocketChannel writer = null;
             try {
-                if(idConnect.incrementCountConnection() > 2) {
+                if (idConnect.incrementCountConnection() > 2) {
                     this.findHost(idConnect, null);
                 }
-                writer = SocketChannel.open();
-                writer.configureBlocking(false);
-                writer.connect(idConnect.getHostConnection());
-                writer.register(key.selector(), writer.validOps(), idConnect);
-            }catch (IOException | NotHostException ex){
+//                writer = SocketChannel.open();
+//                writer.configureBlocking(false);
+//                writer.connect(idConnect.getHostConnection());
+//                writer.register(key.selector(), writer.validOps(), idConnect);
+
+                idConnect.getInverseConnect().setSelectionKey(
+                        this.createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
+
+            } catch (IOException | NotHostException ex) {
                 if (getLogger().isErrorEnabled()) {
                     getLogger().error("Err connect..." + key.channel().toString());
                     e.printStackTrace();
@@ -322,8 +365,17 @@ public abstract class AServer implements IServer {
 
     }
 
+    protected SelectionKey createConnectToServ(Selector selector, IIdConnect idConnect, InetSocketAddress host) throws IOException {
+        SocketChannel writer = SocketChannel.open();
+        writer.configureBlocking(false);
+        writer.connect(host);
+       return writer.register(selector, writer.validOps(), idConnect);
+    }
+
+
     /**
      * Метод закрытия соединения каналов
+     *
      * @param key ключ из выборки селектора
      */
     @Override
@@ -332,7 +384,7 @@ public abstract class AServer implements IServer {
         try {
             SocketChannel sc = (SocketChannel) key.channel();
             if (getLogger().isDebugEnabled())
-                getLogger().debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: "+ Thread.currentThread().getName());
+                getLogger().debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: " + Thread.currentThread().getName());
             sc.close();
         } catch (IOException e) {
             if (getLogger().isErrorEnabled()) {
@@ -349,7 +401,8 @@ public abstract class AServer implements IServer {
 
     /**
      * Создание буфера буферов)))
-     * @param count Количество объектов буфера
+     *
+     * @param count   Количество объектов буфера
      * @param bufSize Размер буфера.
      */
     @Override

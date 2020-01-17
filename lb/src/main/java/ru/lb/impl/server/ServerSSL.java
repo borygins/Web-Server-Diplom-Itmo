@@ -1,5 +1,7 @@
 package ru.lb.impl.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.IIdConnect;
 import ru.lb.design.server.ServerReadStatus;
@@ -21,29 +23,90 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.*;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ServerSSL extends Server {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ServerSSL.class);
+
     private SSLContext context;
+    private SSLSession dummySession;
+    protected ArrayList<ByteBuffer> bufNet;
+
     public ServerSSL(boolean startServer, IConfig config, ConfigIPServer configIPServer) {
-        super(startServer, config, configIPServer,true);
+        super(startServer, config, configIPServer, false);
 
         char[] pass = "changeit".toCharArray();
 
         try {
             context = SSLContext.getInstance("TLS");
-            context.init(createKeyManagers("PKCS12","C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12", "changeit", "changeit"), null, new SecureRandom());
+            context.init(createKeyManagers("PKCS12", "C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12", "changeit", "changeit"), null, new SecureRandom());
 
-            SSLSession dummySession = context.createSSLEngine().getSession();
-            myAppData = ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+            dummySession = context.createSSLEngine().getSession();
+
             myNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
-            peerAppData = ByteBuffer.allocate(dummySession.getApplicationBufferSize());
             peerNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
+
+            this.createBuf(config.getCountBuf(), 0);
+
             dummySession.invalidate();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+
+    @Override
+    public void createBuf(int count, int bufSize) {
+        this.buf = new ArrayList<>();
+        this.bufNet = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            this.buf.add(ByteBuffer.allocate(dummySession.getApplicationBufferSize()));
+            this.bufNet.add(ByteBuffer.allocate(dummySession.getPacketBufferSize()));
+        }
+    }
+
+    @Override
+    public ByteBuffer getBuffer(IIdConnect idConnect) {
+        ByteBuffer buf = null;
+        if(idConnect.isClient()) {
+            buf = (this.bufNet.size() > 0) ? this.bufNet.remove(this.bufNet.size() - 1) : ByteBuffer.allocate(dummySession.getPacketBufferSize());
+
+        } else {
+            buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+        }
+        buf.clear();
+        return buf;
+    }
+
+    public ByteBuffer getBuffer(boolean idConnect) {
+        ByteBuffer buf = null;
+        if(idConnect) {
+            buf = (this.bufNet.size() > 0) ? this.bufNet.remove(this.bufNet.size() - 1) : ByteBuffer.allocate(dummySession.getPacketBufferSize());
+
+        } else {
+            buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+        }
+        buf.clear();
+        return buf;
+    }
+
+    public void addBuffer(boolean idConnect, ByteBuffer byteBuffer) {
+        if(idConnect) {
+            this.bufNet.add(byteBuffer);
+        } else {
+            this.buf.add(byteBuffer);
+        }
+    }
+
+    @Override
+    public void addBuffer(IIdConnect idConnect, ByteBuffer byteBuffer) {
+        if(idConnect.isClient()) {
+            this.bufNet.add(byteBuffer);
+        } else {
+            this.buf.add(byteBuffer);
         }
     }
 
@@ -51,7 +114,7 @@ public class ServerSSL extends Server {
     protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws IOException {
         IIdConnect idConnect = null;
         ResultCheckSSL resultCheckSSL = checkSSL(client, false);
-        if(resultCheckSSL.isResult()) {
+        if (resultCheckSSL.isResult()) {
             idConnect = super.regOnSelector(key, client, selectorTemp);
             idConnect.setSSLEngine(resultCheckSSL.getEngine());
             idConnect.getInverseConnect().setSSLEngine(resultCheckSSL.getEngine());
@@ -73,7 +136,7 @@ public class ServerSSL extends Server {
                 resultCheckSSL.setEngine(engine);
             } else {
                 socketChannel.close();
-                if(getLogger().isDebugEnabled())
+                if (getLogger().isDebugEnabled())
                     getLogger().debug("Соединение закрыто, сбой в TLS.");
             }
         } catch (IOException e) {
@@ -83,24 +146,26 @@ public class ServerSSL extends Server {
     }
 
     @Override
-    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel) {
-        IIdConnect idConnect = (IIdConnect) key.attachment();
+    protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel, IIdConnect idConnect) {
         SSLEngine engine = idConnect.getSSLEngine();
 
-        if(idConnect.isServer() || sharedBuffer == null){
-            return super.write(key,sharedBuffer,socketChannel);
+        if (idConnect.isServer() && sharedBuffer != null) {
+            sharedBuffer.position((sharedBuffer.get() == 23) ? 5 : 0);
+            return super.write(key, sharedBuffer, socketChannel, idConnect);
+        } else if (sharedBuffer == null || sharedBuffer.limit() == sharedBuffer.capacity()) {
+            return super.write(key, sharedBuffer, socketChannel, idConnect);
         }
 
         try {
 
             // The loop has a meaning for (outgoing) messages larger than 16KB.
             // Every wrap call will remove 16KB from the original message and send it to the remote peer.
-            myNetData.clear();
+            ByteBuffer myNetData = this.getBuffer(idConnect.getInverseConnect());
             SSLEngineResult result = engine.wrap(sharedBuffer, myNetData);
             switch (result.getStatus()) {
                 case OK:
                     myNetData.flip();
-                    super.write(key,myNetData,socketChannel);
+                    super.write(key, myNetData, socketChannel, idConnect);
                     break;
                 case BUFFER_OVERFLOW:
                     myNetData = enlargePacketBuffer(engine, myNetData);
@@ -126,12 +191,11 @@ public class ServerSSL extends Server {
     protected ServerReadStatus read(SelectionKey key, IIdConnect idConnect, SocketChannel socketChannel, ByteBuffer sharedBuffer, int countBuf, int bytes) throws IOException, NotHostException {
 
         SSLEngine engine = idConnect.getSSLEngine();
-        if(bytes == 0 || idConnect.isServer()) {
-            return super.read(key, idConnect, socketChannel, peerAppData, countBuf, bytes);
+        if (bytes == 0 || idConnect.isServer()) {
+            return super.read(key, idConnect, socketChannel, sharedBuffer, countBuf, bytes);
         } else if (bytes > 0) {
             sharedBuffer.flip();
-            peerAppData = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
-            peerAppData.clear();
+            ByteBuffer peerAppData = this.getBuffer(idConnect.getInverseConnect());
             while (sharedBuffer.hasRemaining()) {
                 SSLEngineResult result = engine.unwrap(sharedBuffer, peerAppData);
                 switch (result.getStatus()) {
@@ -144,8 +208,8 @@ public class ServerSSL extends Server {
                         sharedBuffer = handleBufferUnderflow(engine, sharedBuffer);
                         return ServerReadStatus.CONTINUE;
                     case CLOSED:
-                        if(getLogger().isDebugEnabled())
-                        getLogger().debug("Client wants to close connection...");
+                        if (getLogger().isDebugEnabled())
+                            getLogger().debug("Client wants to close connection...");
                         close(key);
                         return ServerReadStatus.EXIT;
                     default:
@@ -154,12 +218,18 @@ public class ServerSSL extends Server {
             }
 
         } else if (bytes < 0) {
-            if(getLogger().isErrorEnabled())
+            if (getLogger().isErrorEnabled())
                 getLogger().error("Received end of stream. Will try to close connection with client...");
             handleEndOfStream(key, engine);
         }
         return ServerReadStatus.EXIT;
     }
+
+
+    /**
+     * Will be used to execute tasks that may emerge during handshake in parallel with the server's main thread.
+     */
+    protected ExecutorService executor = Executors.newSingleThreadExecutor();
 
     /**
      * Will contain this peer's application data in plaintext, that will be later encrypted
@@ -194,15 +264,10 @@ public class ServerSSL extends Server {
     protected ByteBuffer peerNetData;
 
     /**
-     * Will be used to execute tasks that may emerge during handshake in parallel with the server's main thread.
-     */
-    protected ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    /**
      * Implements the handshake protocol between two peers, required for the establishment of the SSL/TLS connection.
      * During the handshake, encryption configuration information - such as the list of available cipher suites - will be exchanged
      * and if the handshake is successful will lead to an established SSL/TLS session.
-     *
+     * <p>
      * <p/>
      * A typical handshake will usually contain the following steps:
      *
@@ -222,13 +287,13 @@ public class ServerSSL extends Server {
      * from his peer and then enter the handshake procedure to send his own CLOSE message as well.
      *
      * @param socketChannel - the socket channel that connects the two peers.
-     * @param engine - the engine that will be used for encryption/decryption of the data exchanged with the other peer.
+     * @param engine        - the engine that will be used for encryption/decryption of the data exchanged with the other peer.
      * @return True if the connection handshake was successful or false if an error occurred.
      * @throws IOException - if an error occurs during read/write to the socket channel.
      */
     protected boolean doHandshake(SocketChannel socketChannel, SSLEngine engine) throws IOException {
 
-        if(getLogger().isDebugEnabled())
+        if (getLogger().isDebugEnabled())
             getLogger().debug("Начало проверки TLS соединения.");
 
         SSLEngineResult result;
@@ -239,10 +304,12 @@ public class ServerSSL extends Server {
         // than 16KB long the capacity of these fields should also be smaller. Here we initialize these two local buffers
         // to be used for the handshake, while keeping client's buffers at the same size.
         int appBufferSize = engine.getSession().getApplicationBufferSize();
-        ByteBuffer myAppData = ByteBuffer.allocate(appBufferSize);
-        ByteBuffer peerAppData = ByteBuffer.allocate(appBufferSize);
+
         myNetData.clear();
         peerNetData.clear();
+
+        ByteBuffer myAppData = this.getBuffer(false);
+        ByteBuffer peerAppData = this.getBuffer(false);
 
         handshakeStatus = engine.getHandshakeStatus();
         while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
@@ -250,6 +317,8 @@ public class ServerSSL extends Server {
                 case NEED_UNWRAP:
                     if (socketChannel.read(peerNetData) < 0) {
                         if (engine.isInboundDone() && engine.isOutboundDone()) {
+                            this.addBuffer(false, myAppData);
+                            this.addBuffer(false, peerAppData);
                             return false;
                         }
                         try {
@@ -286,6 +355,8 @@ public class ServerSSL extends Server {
                             break;
                         case CLOSED:
                             if (engine.isOutboundDone()) {
+                                this.addBuffer(false, myAppData);
+                                this.addBuffer(false, peerAppData);
                                 return false;
                             } else {
                                 engine.closeOutbound();
@@ -293,6 +364,8 @@ public class ServerSSL extends Server {
                                 break;
                             }
                         default:
+                            this.addBuffer(false, myAppData);
+                            this.addBuffer(false, peerAppData);
                             throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
                     }
                     break;
@@ -308,7 +381,7 @@ public class ServerSSL extends Server {
                         break;
                     }
                     switch (result.getStatus()) {
-                        case OK :
+                        case OK:
                             myNetData.flip();
                             while (myNetData.hasRemaining()) {
                                 socketChannel.write(myNetData);
@@ -321,6 +394,8 @@ public class ServerSSL extends Server {
                             myNetData = enlargePacketBuffer(engine, myNetData);
                             break;
                         case BUFFER_UNDERFLOW:
+                            this.addBuffer(false, myAppData);
+                            this.addBuffer(false, peerAppData);
                             throw new SSLException("Buffer underflow occured after a wrap. I don't think we should ever get here.");
                         case CLOSED:
                             try {
@@ -336,6 +411,8 @@ public class ServerSSL extends Server {
                             }
                             break;
                         default:
+                            this.addBuffer(false, myAppData);
+                            this.addBuffer(false, peerAppData);
                             throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
                     }
                     break;
@@ -351,10 +428,14 @@ public class ServerSSL extends Server {
                 case NOT_HANDSHAKING:
                     break;
                 default:
+                    this.addBuffer(false, myAppData);
+                    this.addBuffer(false, peerAppData);
                     throw new IllegalStateException("Invalid SSL status: " + handshakeStatus);
             }
         }
 
+        this.addBuffer(false, myAppData);
+        this.addBuffer(false, peerAppData);
         return true;
 
     }
@@ -371,7 +452,8 @@ public class ServerSSL extends Server {
      * Compares <code>sessionProposedCapacity<code> with buffer's capacity. If buffer's capacity is smaller,
      * returns a buffer with the proposed capacity. If it's equal or larger, returns a buffer
      * with capacity twice the size of the initial one.
-     * @param buffer - the buffer to be enlarged.
+     *
+     * @param buffer                  - the buffer to be enlarged.
      * @param sessionProposedCapacity - the minimum size of the new buffer, proposed by {@link SSLSession}.
      * @return A new buffer with a larger capacity.
      */
@@ -389,6 +471,7 @@ public class ServerSSL extends Server {
      * will return the same buffer, so the client tries to read again. If the buffer is already filled will try to enlarge the buffer either to
      * session's proposed size or to a larger capacity. A buffer underflow can happen only after an unwrap, so the buffer will always be a
      * peerNetData buffer.
+     *
      * @param buffer - will always be peerNetData buffer.
      * @param engine - the engine used for encryption/decryption of the data exchanged between the two peers.
      * @return The same buffer if there is no space problem or a new buffer with the same data but more space.
@@ -406,14 +489,21 @@ public class ServerSSL extends Server {
     }
 
     @Override
-    public void close(SelectionKey key)  {
+    protected Logger getLogger() {
+        return LOG;
+    }
 
-        IIdConnect idConnect = (IIdConnect)key.attachment();
-        if(idConnect.isClient()) {
+    @Override
+    public void close(SelectionKey key) {
+
+        IIdConnect idConnect = (IIdConnect) key.attachment();
+        if (idConnect.isClient()) {
             SSLEngine engine = idConnect.getSSLEngine();
             try {
-                engine.closeOutbound();
-                doHandshake((SocketChannel) key.channel(), engine);
+                if (engine != null) {
+                    engine.closeOutbound();
+                    doHandshake((SocketChannel) key.channel(), engine);
+                }
             } catch (IOException e) {
                 if (getLogger().isErrorEnabled()) {
                     getLogger().error("Ошибка разрыва TSL соединения: " + key.channel().toString());
@@ -433,7 +523,7 @@ public class ServerSSL extends Server {
      * @param engine - the engine used for encryption/decryption of the data exchanged between the two peers.
      * @throws IOException if an I/O error occurs to the socket channel.
      */
-    protected void handleEndOfStream(SelectionKey key, SSLEngine engine) throws IOException  {
+    protected void handleEndOfStream(SelectionKey key, SSLEngine engine) throws IOException {
         try {
             engine.closeInbound();
         } catch (Exception e) {
@@ -445,9 +535,9 @@ public class ServerSSL extends Server {
     /**
      * Creates the key managers required to initiate the {@link SSLContext}, using a JKS keystore as an input.
      *
-     * @param filepath - the path to the JKS keystore.
+     * @param filepath         - the path to the JKS keystore.
      * @param keystorePassword - the keystore's password.
-     * @param keyPassword - the key's passsword.
+     * @param keyPassword      - the key's passsword.
      * @return {@link KeyManager} array that will be used to initiate the {@link SSLContext}.
      * @throws Exception
      */
@@ -470,7 +560,7 @@ public class ServerSSL extends Server {
     /**
      * Creates the trust managers required to initiate the {@link SSLContext}, using a JKS keystore as an input.
      *
-     * @param filepath - the path to the JKS keystore.
+     * @param filepath         - the path to the JKS keystore.
      * @param keystorePassword - the keystore's password.
      * @return {@link TrustManager} array, that will be used to initiate the {@link SSLContext}.
      * @throws Exception

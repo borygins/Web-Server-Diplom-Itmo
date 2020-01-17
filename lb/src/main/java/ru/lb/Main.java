@@ -35,11 +35,10 @@ public class Main {
                         config = new Config();
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
-                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true));
-                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
+                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true,0));
+                        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false,0));
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);
-                        config.setCountSelector(1);
                         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
                         try {
@@ -70,26 +69,27 @@ public class Main {
                     lbServer = new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            IServer server = AServer.serverFabric(config, ipServer);
+                            IServer server = AServer.serverFabric(config, ipServer, true);
                             server.setHistoryQuery(new HistoryQuery());
                             server.start();
                         }
                     });
                     lbServer.start();
+                    for (int i = 0; i < ipServer.getCountSelector(); i++) {
+                        lbServer = new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                IServer server = AServer.serverFabric(config, ipServer, true);
+                                server.setHistoryQuery(new HistoryQuery());
+                                server.start();
+                            }
+                        });
+                        lbServer.start();
+                    }
+
                 }
 
-                for (int i = 0; i < config.getCountSelector(); i++) {
-                    lbServer = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            IServer server = new Server(false, config, null, true);
-                            server.setHistoryQuery(new HistoryQuery());
-                            server.start();
-                        }
-                    });
 
-                    lbServer.start();
-                }
             } catch (IOException e) {
                 e.printStackTrace();
             }

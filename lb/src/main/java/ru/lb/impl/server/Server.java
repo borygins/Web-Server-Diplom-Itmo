@@ -2,6 +2,7 @@ package ru.lb.impl.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.ls.LSOutput;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.AServer;
 import ru.lb.design.server.IIdConnect;
@@ -47,8 +48,7 @@ public class Server extends AServer {
 
             while (status != ServerReadStatus.EXIT) {
                 if(status == ServerReadStatus.NEW_BUF) {
-                    sharedBuffer = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
-                    sharedBuffer.clear();
+                    sharedBuffer = this.getBuffer(idConnect);
                 }
 
                 bytes = socketChannel.read(sharedBuffer);
@@ -62,16 +62,15 @@ public class Server extends AServer {
                 LOG.error("Error writing back bytes");
                 e.printStackTrace();
             }
-            this.buf.add(sharedBuffer);
-            sharedBuffer.clear();
+
+            this.addBuffer(idConnect, sharedBuffer);
             this.close(key);
-        } catch ( NotHostException e){
+        } catch (NotHostException e){
             if (LOG.isErrorEnabled()) {
                 LOG.error("Хост не был найден в заголовках.");
                 e.printStackTrace();
             }
-            this.buf.add(sharedBuffer);
-            sharedBuffer.clear();
+            this.addBuffer(idConnect, sharedBuffer);
             this.close(key);
         }
     }
@@ -93,10 +92,7 @@ public class Server extends AServer {
         while (writeStatus != ServerWriteStatus.EXIT) {
             ByteBuffer sharedBuffer = idConnect.getAndRemoveBuf();
 
-            if(sharedBuffer != null)
-                System.out.println(new String(sharedBuffer.array(), 0, sharedBuffer.limit()));
-
-            writeStatus = this.write(key, sharedBuffer, socketChannel);
+            writeStatus = this.write(key, sharedBuffer, socketChannel, idConnect);
         }
 
         if (idConnect.isStopConnect()) {

@@ -26,7 +26,7 @@ class ServerImplTest {
             public void run() {
                 IConfig config = new Config();
                 config.addIPserver("127.0.0.1:8080", new InetSocketAddress("185.9.147.48", 80));
-                config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false));
+                config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false,0));
                 config.setCountBuf(512);
                 config.setSizeBuf(1024);
 

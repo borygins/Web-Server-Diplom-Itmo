@@ -21,9 +21,6 @@ public interface IConfig {
     int getSizeBuf();
     void setSizeBuf(int sizeBuf);
 
-    void setCountSelector(int countSelector);
-    int getCountSelector();
-
     void setPatternReadHeadHost(String pattern);
     Matcher getMatcher(String str);
 }

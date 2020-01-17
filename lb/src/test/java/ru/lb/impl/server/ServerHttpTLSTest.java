@@ -46,7 +46,7 @@ class ServerHttpTLSTest {
         IConfig config = new Config();
         config.setCountBuf(512);
         config.setSizeBuf(1024);
-        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true));
+        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true,0));
         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
         for (int i = 0; i < 2; i++) {
@@ -63,7 +63,7 @@ class ServerHttpTLSTest {
             lbServer = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    IServer server = AServer.serverFabric(config, ipServer);
+                    IServer server = AServer.serverFabric(config, ipServer, true);
                     server.setHistoryQuery(new HistoryQuery());
                     server.start();
                 }

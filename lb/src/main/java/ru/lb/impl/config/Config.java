@@ -15,7 +15,6 @@ public class Config implements IConfig {
     private List<ConfigIPServer> ipServer = new ArrayList<>();
     private int sizeBuf;
     private int countBuf;
-    private int countSelector;
     private String patternReadHeadHost;
     private Pattern pattern;
     private String firstGroup;
@@ -60,16 +59,6 @@ public class Config implements IConfig {
     @Override
     public void setSizeBuf(int sizeBuf) {
         this.sizeBuf = sizeBuf;
-    }
-
-    @Override
-    public void setCountSelector(int countSelector) {
-        this.countSelector = countSelector;
-    }
-
-    @Override
-    public int getCountSelector() {
-        return countSelector - 1;
     }
 
     @Override

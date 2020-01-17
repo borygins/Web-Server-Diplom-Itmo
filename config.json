@@ -5,7 +5,14 @@
   },
   "sizeBuf" : 1024,
   "countBuf" : 512,
-  "countSelector" : 0,
   "patternReadHeadHost" : "\\r\\nHost: (.+)(:|\\r\\n)",
-  "ipserver" : "localhost:8080"
+  "iplb" : [ {
+    "ipServer" : "localhost:443",
+    "ssl" : true,
+    "countSelector" : 0
+  }, {
+    "ipServer" : "localhost:80",
+    "ssl" : false,
+    "countSelector" : 0
+  } ]
 }
