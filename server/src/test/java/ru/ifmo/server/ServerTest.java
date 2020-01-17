@@ -53,7 +53,7 @@ public class ServerTest {
 
     @Test
     public void testSuccess() throws Exception {
-        // TODO test headers
+
         URI uri = new URIBuilder(SUCCESS_URL)
                 .addParameter("1", "1")
                 .addParameter("2", "2")

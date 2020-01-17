@@ -175,7 +175,12 @@ public class Server implements Closeable {
         try {
             filter.filter(req, resp);
         } catch (Exception e) {
-            // todo respond 500
+            LOG.error("Error parsing filter", e);
+
+            respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
+                    sock.getOutputStream());
+
+            return;
         }
     }
 
@@ -183,7 +188,7 @@ public class Server implements Closeable {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
 
         Request req = new Request(socket);
-        StringBuilder sb = new StringBuilder(READER_BUF_SIZE); // TODO
+        StringBuilder sb = new StringBuilder(READER_BUF_SIZE);
 
         while (readLine(reader, sb) > 0) {
             if (req.method == null)
