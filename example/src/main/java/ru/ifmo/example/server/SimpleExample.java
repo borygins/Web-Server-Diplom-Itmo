@@ -4,6 +4,7 @@ import ru.ifmo.server.*;
 
 import java.awt.*;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -15,10 +16,14 @@ public class SimpleExample {
     public static void main(String[] args) throws URISyntaxException, IOException {
         Handler printHandler = new InfoHandler();
 
+
         // Define config with request handlers
         ServerConfig config = new ServerConfig()
                 .addHandler("/info.html", printHandler)
-                .addHandler("/info", printHandler);
+                .addHandler("/info", printHandler)
+                .addHandler("/dispatched", printHandler)
+                .setDispatcher(new RequestDispatcher());
+
 
         // Start server
         @SuppressWarnings("unused")
@@ -34,12 +39,21 @@ public class SimpleExample {
             System.out.println(">>> Open " + infoPage);
 
     }
+    private static class RequestDispatcher implements Dispatcher{
+        @Override
+        public String dispatch(Request request, Response response) {
+            if (request.getPath().equals("/test")) return "/dispatched";
+            return "/dispatched";
+        }
+    }
+
 
     private static class InfoHandler implements Handler {
         @Override
         public void handle(Request request, Response response) throws Exception {
             // Set correct header
             StringBuilder sb = new StringBuilder(Http.OK_HEADER);
+
 
             // Set doctype
             sb.append("<!DOCTYPE html>");
