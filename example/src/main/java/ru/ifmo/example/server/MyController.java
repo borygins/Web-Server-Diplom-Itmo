@@ -8,7 +8,7 @@ import ru.ifmo.server.annotation.Uri;
 import java.io.IOException;
 
 public class MyController {
-    @Uri(value = "/index", method = HttpMethod.POST)
+    @Uri(value = "/index", method = HttpMethod.GET)
     public void courses(Request request, Response res) throws IOException {
         res.getOutputStream().write("Hello!!".getBytes());
     }

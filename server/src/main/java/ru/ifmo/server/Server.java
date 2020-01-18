@@ -17,8 +17,8 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
+import static ru.ifmo.server.util.Utils.htmlMessage;
 
 /**
  * Ifmo Web Server.
@@ -211,7 +211,12 @@ public class Server implements Closeable {
             }
         }
         //todo
-        /*else if (reflectiveHandlers.containsKey(req.getPath())) {
+        else if (reflectiveHandlers.containsKey(req.getPath())) {
+            final ReflectiveHandler reflectHandler = reflectiveHandlers.get(req.getPath());
+            if (reflectHandler != null && reflectHandler.isApplicable(req.method))
+                processReflectHandler(reflectHandler, req, resp, sock);
+
+            /*else if (reflectiveHandlers.containsKey(req.getPath())) {
             final ReflectiveHandler hnd = reflectiveHandlers.get(req.getPath());
 
             if (hnd.method == req.method) {
@@ -223,10 +228,30 @@ public class Server implements Closeable {
                 }
             } // else 404
         }*/
-        else
+
+            else
+                respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
+                        sock.getOutputStream());
+        }
+    }
+
+    private void processReflectHandler(ReflectiveHandler rf, Request req, Response resp, Socket sock) throws IOException {
+        if (rf.method.equals(req.method))
+        try {
+            rf.method.invoke(rf.obj, req, resp);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            if (LOG.isDebugEnabled())
+                LOG.error("Error invoke method:" + rf.method, e);
+
+            respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
+                    sock.getOutputStream());
+        }
+        else{
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
+        }
     }
+
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
@@ -427,5 +452,11 @@ public class Server implements Closeable {
         public void setMethods(EnumSet<HttpMethod> methods) {
             this.methods = methods;
         }
+
+        boolean isApplicable(HttpMethod method) {
+            return methods.contains(HttpMethod.ALL) || methods.contains(method);
+        }
     }
+
+
 }
