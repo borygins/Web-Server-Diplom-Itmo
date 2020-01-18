@@ -11,7 +11,7 @@ public class AcesslogExample {
         ServerConfig config = new ServerConfig()
                 .addHandler("/access", (request, response) -> {
                     Writer writer = new OutputStreamWriter(response.getOutputStream());
-                    writer.write(Http.OK_HEADER + "Access Log Check!");
+                    writer.write("Access Log Check!");
                     writer.flush();
                 });
 
