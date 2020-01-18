@@ -65,7 +65,7 @@ public class Server implements Closeable {
 
     private FunctionFilter filter = new TailFilter();
 
-    private Server(ServerConfig config) {
+    public Server(ServerConfig config) {
         this.config = new ServerConfig(config);
     }
 
@@ -99,7 +99,7 @@ public class Server implements Closeable {
         }
     }
 
-    private void initFilters() {
+    public  void initFilters() {
         List<FunctionFilter> filters = config.getFilters();
 
         if (filters == null)
@@ -328,7 +328,7 @@ public class Server implements Closeable {
 
     private class TailFilter extends FunctionFilter {
         @Override
-        void filter(Request req, Response resp) throws IOException {
+        protected void filter(Request req, Response resp) throws IOException {
             Socket sock = req.socket;
 
             Handler handler = config.handler(req.getPath());

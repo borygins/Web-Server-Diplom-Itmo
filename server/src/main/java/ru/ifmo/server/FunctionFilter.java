@@ -5,5 +5,5 @@ package ru.ifmo.server;
 public abstract class FunctionFilter {
     protected FunctionFilter next;
 
-    abstract void filter(Request request, Response response) throws Exception;
+    protected abstract void filter(Request request, Response response) throws Exception;
 }
