@@ -20,6 +20,7 @@ public class SimpleExample {
                 .addHandler("/info.html", printHandler)
                 .addHandler("/info", printHandler);
 
+
         // Start server
         @SuppressWarnings("unused")
         Server server = Server.start(config);

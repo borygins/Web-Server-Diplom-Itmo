@@ -13,10 +13,13 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static ru.ifmo.server.util.Utils.htmlMessage;
 import static ru.ifmo.server.Http.*;
+import static ru.ifmo.server.Session.SESSION_COOKIENAME;
 import static ru.ifmo.server.util.Utils.htmlMessage;
 
 /**
@@ -57,15 +60,36 @@ public class Server implements Closeable {
     private static final int READER_BUF_SIZE = 1024;
 
     private final ServerConfig config;
-
     private ServerSocket socket;
-
     private ExecutorService acceptorPool;
+    private Thread lisThread;
+    private static Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
     private Server(ServerConfig config) {
         this.config = new ServerConfig(config);
+    }
+
+    static Map<String, Session> getSessions() {
+        return sessions;
+    }
+
+    static void setSessions(String key, Session session) {
+        Server.sessions.put(key, session);
+    }
+
+    static void removeSession(String key) {
+        Server.sessions.remove(key);
+    }
+
+    private void listenSessions() throws IOException {
+        SessionListener sessionListener = new SessionListener(sessions);
+        lisThread = new Thread(sessionListener);
+        lisThread.start();
+
+        // done debug++
+        LOG.debug("Session listener started, deleting by timeout.");
     }
 
     /**
@@ -90,6 +114,9 @@ public class Server implements Closeable {
             server.startAcceptor();
 
             LOG.info("Server started on port: {}", config.getPort());
+
+            server.listenSessions();
+
             return server;
         } catch (IOException e) {
             throw new ServerException("Cannot start server on port: " + config.getPort());
@@ -112,11 +139,12 @@ public class Server implements Closeable {
     public void stop() {
         acceptorPool.shutdownNow();
         Utils.closeQuiet(socket);
+        lisThread.interrupt();
 
         socket = null;
     }
 
-    private void responseExecutor(Response response) throws IOException {
+    private void responseExecutor(Response response, Request request) throws IOException {
         // status code
         if (response.getStatusCode() == 0) {
             response.setStatusCode(Http.SC_OK);
@@ -147,9 +175,30 @@ public class Server implements Closeable {
             outputStream.write((head + ":" + SPACE + head.getValue() + CRLF).getBytes());
         }
 
+        if (request.getSession() != null) {
+            response.setCookie(new Cookie(SESSION_COOKIENAME, request.getSession().getId()));
+        }
+
+        for (Map.Entry<String, Cookie> entry : response.setCookies.entrySet()) {
+            StringBuilder cookieLine = new StringBuilder();
+            cookieLine.append(entry.getKey()).append("=").append(entry.getValue().getValue());
+            if (entry.getValue().getMaxAge() != 0) {
+                cookieLine.append(";Max-Age=").append(entry.getValue().getMaxAge());
+            }
+            if (entry.getValue().getDomain() != null) {
+                cookieLine.append(";DOMAIN=").append(entry.getValue().getDomain());
+            }
+            if (entry.getValue().getPath() != null) {
+                cookieLine.append(";PATH=").append(entry.getValue().getPath());
+            }
+            outputStream.write(("Set-Cookie:" + SPACE + cookieLine.toString() + CRLF).getBytes());
+        }
+
+
         outputStream.write(CRLF.getBytes());
 
         if (response.bout != null) {
+            System.out.println(response.bout.toString());
             outputStream.write(response.bout.toByteArray());
         }
 
@@ -194,7 +243,7 @@ public class Server implements Closeable {
                 handler.handle(req, resp);
 
                 //Create response
-                responseExecutor(resp);
+                responseExecutor(resp, req);
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
                     LOG.error("Server error:", e);
@@ -209,7 +258,7 @@ public class Server implements Closeable {
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
 
-        Request req = new Request(socket);
+        Request req = new Request(socket, sessions);
         StringBuilder sb = new StringBuilder(READER_BUF_SIZE); // TODO
 
         while (readLine(reader, sb) > 0) {
@@ -273,42 +322,42 @@ public class Server implements Closeable {
 
     private void parseHeader(Request req, StringBuilder sb) {
         String key = null;
-
         int len = sb.length();
         int start = 0;
 
         for (int i = 0; i < len; i++) {
             if (sb.charAt(i) == HEADER_VALUE_SEPARATOR) {
                 key = sb.substring(start, i).trim();
-
                 start = i + 1;
-
                 break;
             }
         }
-
         req.addHeader(key, sb.substring(start, len).trim());
+
+        if ("Cookie".equals(key)) {
+            String[] pairs = sb.substring(start, len).trim().split("; ");
+            for (int i = 0; i < pairs.length; i++) {
+                String pair = pairs[i];
+                String[] keyValue = pair.split("=");
+                req.mapCookie(keyValue[0], new Cookie(keyValue[0], keyValue[1]));
+            }
+        }
     }
 
     private int readLine(InputStreamReader in, StringBuilder sb) throws IOException {
         int c;
         int count = 0;
-
         while ((c = in.read()) >= 0) {
             if (c == LF)
                 break;
-
             sb.append((char) c);
-
             count++;
         }
-
         if (count > 0 && sb.charAt(count - 1) == CR)
             sb.setLength(--count);
 
         if (LOG.isTraceEnabled())
             LOG.trace("Read line: {}", sb.toString());
-
         return count;
     }
 
@@ -323,6 +372,7 @@ public class Server implements Closeable {
      * @throws IOException Should be never thrown.
      */
     public void close() throws IOException {
+        // done close session listener: +++ in line 146
         stop();
     }
 

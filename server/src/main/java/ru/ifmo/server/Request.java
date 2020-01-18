@@ -5,8 +5,13 @@ import java.io.InputStream;
 import java.net.Socket;
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
+import static ru.ifmo.server.Session.SESSION_COOKIENAME;
 
 /**
  * Keeps request information: method, headers, params
@@ -18,11 +23,17 @@ public class Request {
     HttpMethod method;
     URI path;
 
+
+    private Map<String, Cookie> cookies;
+    private Session session;
+    private final Map<String, Session> sessions;
     Map<String, String> headers;
     Map<String, String> args;
 
-    Request(Socket socket) {
+
+    Request(Socket socket, Map<String, Session> sessions) {
         this.socket = socket;
+        this.sessions = sessions;
     }
 
     /**
@@ -82,6 +93,41 @@ public class Request {
         return Collections.unmodifiableMap(args);
     }
 
+    void mapCookie(String name, Cookie cookie) {
+        if (cookies == null){
+            cookies = new HashMap<>();
+        }
+        cookies.put(name, cookie);
+    }
+    public Map<String, Cookie> getCookies() {
+        if (getHeaders().get("Cookie") == null) {
+            return emptyMap();
+        }
+        return unmodifiableMap(cookies);
+    }
+    public String getCookieValue(String key) {
+        return cookies.get(key).getValue();
+    }
+
+    public Session getSession() {
+        if (session == null) {
+            session = getSession(false); //сначала проверим, нет ли в cookie id открытой сессии
+        }
+        return session;
+    }
+
+    public Session getSession(boolean open) {
+        if (!getCookies().containsKey(SESSION_COOKIENAME) || open) {
+            session = new Session();
+            sessions.put(session.getId(), session);
+        } else {
+            session = sessions.get(getCookieValue(SESSION_COOKIENAME)); //проверим, точно ли ещё есть на сервере
+            if (session == null) {
+                session = getSession(true);
+            }
+        }
+        return session;
+    }
     @Override
     public String toString() {
         return "Request{" +
