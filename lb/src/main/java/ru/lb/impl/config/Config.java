@@ -6,12 +6,14 @@ import ru.lb.design.config.IConfig;
 
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Config implements IConfig {
     private final Map<String, String> att = new HashMap<>();
-    private final Map<String, List<InetSocketAddress>> groupServer = new HashMap<>();
+    private final Map<String, List<InetSocketAddress>> groupServer = new ConcurrentHashMap<>();
     private List<ConfigIPServer> ipServer = new ArrayList<>();
     private int sizeBuf;
     private int countBuf;
@@ -23,6 +25,7 @@ public class Config implements IConfig {
         return att;
     }
 
+    @Override
     public Map<String, List<InetSocketAddress>> getGroupServer() {
         return groupServer;
     }
@@ -105,9 +108,18 @@ public class Config implements IConfig {
         if(groupServer.containsKey(group)){
             groupServer.get(group).add(value);
         } else {
-            List<InetSocketAddress> serv = new ArrayList<>();
+            List<InetSocketAddress> serv = new CopyOnWriteArrayList<>();
             serv.add(value);
             groupServer.put(group, serv);
+        }
+    }
+
+    public void updateList(){
+        for(Map.Entry<String, List<InetSocketAddress>> tempGroupServer :  groupServer.entrySet()){
+            List<InetSocketAddress> tempList = tempGroupServer.getValue();
+            List<InetSocketAddress> cocurent = new CopyOnWriteArrayList<>();
+            cocurent.addAll(tempList);
+            groupServer.put(tempGroupServer.getKey(), cocurent);
         }
     }
 

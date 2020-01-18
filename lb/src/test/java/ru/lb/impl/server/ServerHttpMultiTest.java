@@ -15,19 +15,18 @@ import ru.lb.impl.config.ConfigIPServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ServerHttpCloseConnectTest {
+class ServerHttpMultiTest {
 
     private final List<HttpServer> httpServers = new ArrayList<>();
     private final List<Thread> lbServers = new ArrayList<>();
@@ -40,7 +39,7 @@ class ServerHttpCloseConnectTest {
     void setUp() throws IOException, InterruptedException {
         config.setCountBuf(512);
         config.setSizeBuf(1024);
-        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false,0));
+        config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false,2));
         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
 
         for (int i = 0; i < 10; i++) {
@@ -53,16 +52,25 @@ class ServerHttpCloseConnectTest {
             lbServer = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    IServer server = AServer.serverFabric(config, ipServer,true);
-                    server.setHistoryQuery(new HistoryQuery());
+                    IServer server = AServer.serverFabric(config, ipServer, true);
+                    server.setHistoryQuery(new HistoryQueryRandom());
                     server.start();
                 }
             });
-
-            lbServers.add(lbServer);
             lbServer.start();
-        }
+            for (int i = 0; i < ipServer.getCountSelector(); i++) {
+                lbServer = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        IServer server = AServer.serverFabric(config, ipServer, false);
+                        server.setHistoryQuery(new HistoryQueryRandom());
+                        server.start();
+                    }
+                });
+                lbServer.start();
+            }
 
+        }
         Thread.sleep(5000);
     }
 
@@ -97,9 +105,9 @@ class ServerHttpCloseConnectTest {
         return httpServer;
     }
 
+
     @Test
     void testQuery() throws IOException, InterruptedException {
-
         HttpClient client = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -108,36 +116,43 @@ class ServerHttpCloseConnectTest {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(URL))
-                .setHeader("ValidHead", "1245")
+                .setHeader("ValidHead","1245")
                 .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(200, response.statusCode());
         assertEquals(true, response.body().toLowerCase().contains("validhead=1245"));
 
-        httpServers.forEach((q1) -> q1.stop(0));
-
-        config.getListIPserver("localhost").clear();
-
-            httpServers.add(this.startHttpServer(portServer));
-            config.addIPserver("localhost", new InetSocketAddress(ipServer, portServer));
-
-        Thread.sleep(5000);
-
-        request = HttpRequest.newBuilder()
-                .uri(URI.create(URL))
-                .setHeader("ValidHead", "1241")
-                .build();
         client = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(20))
                 .build();
-        HttpResponse<String> response2 = client.send(request, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, response2.statusCode());
-        assertEquals(true, response2.body().toLowerCase().contains("validhead=1241"));
-    }
 
+        request = HttpRequest.newBuilder()
+                .uri(URI.create(URL))
+                .setHeader("ValidHead","1243")
+                .build();
+
+        response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertEquals(true, response.body().toLowerCase().contains("validhead=1243"));
+
+        client = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofSeconds(20))
+                .build();
+
+        request = HttpRequest.newBuilder()
+                .uri(URI.create(URL))
+                .setHeader("ValidHead","1244")
+                .build();
+
+        response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        assertEquals(true, response.body().toLowerCase().contains("validhead=1244"));
+    }
 
     @AfterEach
     void tearDown() {

@@ -4,13 +4,13 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.server.AServer;
 import ru.lb.design.server.IServer;
 import ru.lb.impl.config.Config;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import ru.lb.impl.config.ConfigIPServer;
 
 import javax.net.ssl.*;
@@ -25,9 +25,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -37,7 +35,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ServerHttpTLSTest {
+class ServerHttpTLSLongTest {
 
     private final List<HttpServer> httpServers = new ArrayList<>();
     private final List<Thread> lbServers = new ArrayList<>();
@@ -106,7 +104,7 @@ class ServerHttpTLSTest {
     }
 
     @Test
-    void testQuery() throws Exception {
+    void testQueryPost() throws Exception {
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(createKeyManagers("PKCS12","C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12", "changeit", "changeit"),
                 null, new SecureRandom());
@@ -118,8 +116,15 @@ class ServerHttpTLSTest {
                 .connectTimeout(Duration.ofSeconds(20))
                 .build();
 
+        Map<Object, Object> data = new HashMap<>();
+        data.put("username", "abc");
+        data.put("password", "123");
+        data.put("custom", "secret".repeat(6500));
+        data.put("ts", System.currentTimeMillis());
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(URL))
+                .POST(buildFormDataFromMap(data))
                 .setHeader("ValidHead", "1245")
                 .build();
 
@@ -127,6 +132,18 @@ class ServerHttpTLSTest {
         assertEquals(200, response.statusCode());
         assertEquals(true, response.body().toLowerCase().contains("validhead=1245"));
 
+    }
+    private static HttpRequest.BodyPublisher buildFormDataFromMap(Map<Object, Object> data) {
+        var builder = new StringBuilder();
+        for (Map.Entry<Object, Object> entry : data.entrySet()) {
+            if (builder.length() > 0) {
+                builder.append("&");
+            }
+            builder.append(URLEncoder.encode(entry.getKey().toString(), StandardCharsets.UTF_8));
+            builder.append("=");
+            builder.append(URLEncoder.encode(entry.getValue().toString(), StandardCharsets.UTF_8));
+        }
+        return HttpRequest.BodyPublishers.ofString(builder.toString());
     }
 
     @AfterEach

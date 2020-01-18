@@ -4,6 +4,7 @@ import ru.lb.impl.config.ConfigIPServer;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 public interface IConfig {
@@ -14,6 +15,7 @@ public interface IConfig {
     List<InetSocketAddress> getListIPserver(String group);
     void addIPserver(String group, InetSocketAddress value);
     void setIPserver(ConfigIPServer value);
+    Map<String, List<InetSocketAddress>> getGroupServer();
     List<ConfigIPServer> getIPlb();
 
     int getCountBuf();

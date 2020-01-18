@@ -11,6 +11,7 @@ import ru.lb.impl.server.HistoryQuery;
 import ru.lb.impl.server.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.lb.impl.service.Service;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -79,7 +80,7 @@ public class Main {
                         lbServer = new Thread(new Runnable() {
                             @Override
                             public void run() {
-                                IServer server = AServer.serverFabric(config, ipServer, true);
+                                IServer server = AServer.serverFabric(config, ipServer, false);
                                 server.setHistoryQuery(new HistoryQuery());
                                 server.start();
                             }
@@ -88,6 +89,9 @@ public class Main {
                     }
 
                 }
+
+
+                new Thread(new Service(config)).start();
 
 
             } catch (IOException e) {

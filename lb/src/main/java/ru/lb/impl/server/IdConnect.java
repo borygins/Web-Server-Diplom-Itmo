@@ -3,6 +3,7 @@ package ru.lb.impl.server;
 import ru.lb.design.server.IIdConnect;
 
 import javax.net.ssl.SSLEngine;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -89,6 +90,9 @@ public class IdConnect implements IIdConnect {
 
     @Override
     public void setSelectionKey(SelectionKey key) {
+        if(this.key != null) {
+            setMyInterestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+        }
         this.key = key;
     }
 
@@ -150,5 +154,20 @@ public class IdConnect implements IIdConnect {
     @Override
     public int countBuff() {
         return this.buffer.size();
+    }
+
+    @Override
+    public void setMyInterestOps(int interestOps) {
+        if (getSelectionKey() != null && getSelectionKey().isValid()) {
+                getSelectionKey().interestOps(interestOps);
+        }
+    }
+
+    @Override
+    public void setInverseInterestOps(int interestOps) {
+        if (getInverseConnect() != null && getInverseConnect().getSelectionKey() != null && getInverseConnect().getSelectionKey().isValid()) {
+            getInverseConnect().getSelectionKey().interestOps(interestOps);
+            getInverseConnect().getSelectionKey().selector().wakeup();
+        }
     }
 }

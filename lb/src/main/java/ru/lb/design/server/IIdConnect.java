@@ -43,4 +43,7 @@ public interface IIdConnect {
 
     void setSSLEngine(SSLEngine engine);
     SSLEngine getSSLEngine();
+
+    void setMyInterestOps(int interestOps);
+    void setInverseInterestOps(int interestOps);
 }

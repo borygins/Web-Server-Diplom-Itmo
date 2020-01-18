@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Stream;
+import java.util.concurrent.DelayQueue;
 
 public abstract class AServer implements IServer {
 
@@ -26,7 +26,7 @@ public abstract class AServer implements IServer {
     protected ServerSocket serverSocket;
     protected final boolean startServer;
     protected LinkedList<ByteBuffer> buf;
-    protected final Map<String, Queue<Selector>> queSelector = new HashMap<>();
+    protected final static Map<String, Queue<Selector>> queSelector = new HashMap<>();
     protected final String typeClass;
     protected static IHistoryQuery historyQuery;
 
@@ -65,17 +65,19 @@ public abstract class AServer implements IServer {
 
         try {
             this.selector = Selector.open();
-            if(!queSelector.containsKey(typeClass)){
-                queSelector.put(typeClass, new ConcurrentLinkedQueue<>());
+            synchronized (queSelector) {
+                if (!queSelector.containsKey(typeClass)) {
+                    queSelector.put(typeClass, new ConcurrentLinkedQueue<>());
+                }
+                queSelector.get(typeClass).offer(this.selector);
             }
-            queSelector.get(typeClass).offer(this.selector);
             if (startServer) {
 
                 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
                 serverSocketChannel.configureBlocking(false);
                 this.serverSocket = serverSocketChannel.socket();
                 this.serverSocket.bind(configIPServer.getIpServer());
-                serverSocketChannel.register(this.selector, SelectionKey.OP_ACCEPT);
+                serverSocketChannel.register(this.selector, serverSocketChannel.validOps());
                 if (getLogger().isInfoEnabled()) {
                     getLogger().info("Выполнен запуск и регистрация канала " + this.serverSocket.toString());
                 }
@@ -148,7 +150,6 @@ public abstract class AServer implements IServer {
 
     @Override
     public ByteBuffer getBuffer(IIdConnect idConnect) {
-//        ByteBuffer buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
         ByteBuffer buf = null;
         try {
             buf = this.buf.removeLast();
@@ -204,7 +205,7 @@ public abstract class AServer implements IServer {
      */
     protected IIdConnect regOnSelector(SelectionKey key, SocketChannel client, Selector selectorTemp) throws IOException {
 
-        SelectionKey selectionKeyClient = client.register(selectorTemp, client.validOps() & ~SelectionKey.OP_WRITE);
+        SelectionKey selectionKeyClient = client.register(selectorTemp, SelectionKey.OP_READ);
 
         //Проверяем на существование идентификатора. Если его нет, создаем.
         IIdConnect idConnect = (IIdConnect) key.attachment();
@@ -261,23 +262,17 @@ public abstract class AServer implements IServer {
             sharedBuffer.flip();
 
             if (idConnect.getInverseConnect().getSelectionKey() == null) {
-//                SocketChannel writer = SocketChannel.open();
-//                writer.configureBlocking(false);
-//                writer.connect(idConnect.getHostConnection());
-//                SelectionKey keyWriter = writer.register(key.selector(), socketChannel.validOps(), idConnect.getInverseConnect());
-//                idConnect.getInverseConnect().setSelectionKey(keyWriter);
                 idConnect.getInverseConnect().setSelectionKey(
                 this.createConnectToServ(key.selector(), idConnect.getInverseConnect(),idConnect.getHostConnection()));
             } else {
-                idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
+                idConnect.setInverseInterestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             }
             if (!closeSelectionKey)
                 return ServerReadStatus.EXIT;
         }
 
         if (closeSelectionKey) {
-            if (idConnect.getInverseConnect() != null && idConnect.getInverseConnect().getSelectionKey() != null)
-                idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
+            idConnect.setInverseInterestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             this.addBuffer(idConnect, sharedBuffer);
             this.close(key, idConnect);
             return ServerReadStatus.EXIT;
@@ -302,7 +297,7 @@ public abstract class AServer implements IServer {
 
     protected ServerWriteStatus write(SelectionKey key, ByteBuffer sharedBuffer, SocketChannel socketChannel, IIdConnect idConnect) {
         if (sharedBuffer == null) {
-            key.interestOps(socketChannel.validOps() & ~SelectionKey.OP_WRITE);
+            key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             return ServerWriteStatus.EXIT;
         }
 
@@ -340,9 +335,9 @@ public abstract class AServer implements IServer {
 
         try {
             socketChannel.finishConnect();
-            key.interestOps(socketChannel.validOps());
+            key.interestOps(SelectionKey.OP_WRITE);
             if (getLogger().isInfoEnabled())
-                getLogger().info("Установлено соединение с севрером: " + socketChannel);
+                getLogger().info("Установлено соединение с севрером: " + socketChannel + ", селектор: " + key.selector()+ ", поток: " + Thread.currentThread().getName());
         } catch (IOException e) {
             if (getLogger().isErrorEnabled()) {
                 getLogger().error("Err connect..." + key.channel().toString());
@@ -350,15 +345,10 @@ public abstract class AServer implements IServer {
             }
             this.close(key, idConnect);
 
-//            SocketChannel writer = null;
             try {
                 if (idConnect.incrementCountConnection() > 2) {
                     this.findHost(idConnect, null);
                 }
-//                writer = SocketChannel.open();
-//                writer.configureBlocking(false);
-//                writer.connect(idConnect.getHostConnection());
-//                writer.register(key.selector(), writer.validOps(), idConnect);
 
                 idConnect.setSelectionKey(
                         this.createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
@@ -377,7 +367,7 @@ public abstract class AServer implements IServer {
         SocketChannel writer = SocketChannel.open();
         writer.configureBlocking(false);
         writer.connect(host);
-       return writer.register(selector, writer.validOps(), idConnect);
+       return writer.register(selector, SelectionKey.OP_CONNECT, idConnect);
     }
 
 
@@ -390,8 +380,12 @@ public abstract class AServer implements IServer {
     public void close(SelectionKey key, IIdConnect idConnect) {
         //Закрываем соединение, вроде key.cancel(); делать не надо.
         if(idConnect == null || idConnect.isClient() || idConnect.countBuff() < 1) {
-            idConnect.getInverseConnect().setStopConnect(true);
+            if(idConnect.getInverseConnect() != null) {
+                idConnect.getInverseConnect().setStopConnect(true);
+                idConnect.setInverseInterestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+            }
             try {
+                key.cancel();
                 SocketChannel sc = (SocketChannel) key.channel();
                 if (getLogger().isDebugEnabled())
                     getLogger().debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: " + Thread.currentThread().getName());
