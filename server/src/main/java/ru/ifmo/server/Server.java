@@ -62,9 +62,6 @@ public class Server implements Closeable {
 
     private ExecutorService acceptorPool;
 
-    // todo not initialized
-    private Map<String, Handler> handlers;
-
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
     private Server(ServerConfig config) {
@@ -89,7 +86,7 @@ public class Server implements Closeable {
 
             Server server = new Server(config);
 
-            server.createHandlers();
+            server.initHandlers();
 
             server.openConnection();
             server.startAcceptor();
@@ -102,18 +99,19 @@ public class Server implements Closeable {
         }
     }
 
-    private void createHandlers() {
-        for (Map.Entry<String, Class<? extends Handler>> entry: config.getHandlers().entrySet()) {
+    private void initHandlers() {
+
+        Map<String, Handler> handlers = config.getHandlers();
+
+        for (Map.Entry<String, Class<? extends Handler>> entry: config.getHandlerClasses().entrySet()) {
 
             try {
                 Handler handler = entry.getValue().getConstructor().newInstance();
 
-                // todo NPE
                 handlers.put(entry.getKey(), handler);
 
             } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                // todo throw ServerException
-                e.printStackTrace();
+                throw new ServerException(e.getMessage());
             }
         }
     }
@@ -175,8 +173,7 @@ public class Server implements Closeable {
             return;
         }
 
-        // todo NPE
-        Handler handler = handlers.get(req.getPath());
+        Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
 
         if (handler != null) {
