@@ -1,5 +1,6 @@
 package ru.ifmo.server;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,6 +14,7 @@ public class ServerConfig {
     private int port = DFLT_PORT;
     private Map<String, Handler> handlers;
     private int socketTimeout;
+    private File workDirectory;
 
     public ServerConfig() {
         handlers = new HashMap<>();
@@ -24,8 +26,17 @@ public class ServerConfig {
         port = config.port;
         handlers = new HashMap<>(config.handlers);
         socketTimeout = config.socketTimeout;
+        // added config.WorkDirectory for set
+        workDirectory =config.workDirectory;
     }
-
+    /**
+     * War directory with loading static content (.txt, .html, js, .png, etc.)
+     * @return WorkDirectory
+     */
+    public ServerConfig setWorkDirectory(File file) {
+        this.workDirectory = file;
+        return this;
+    }
     /**
      * @return Local port.
      */
@@ -116,5 +127,17 @@ public class ServerConfig {
                 ", handlers=" + handlers +
                 ", socketTimeout=" + socketTimeout +
                 '}';
+    }
+
+    /**
+     * ticket 2
+     *implemented getWorkDirectory for Get request
+     * @return
+     */
+    public File getWorkDirectory(){return workDirectory;}
+
+    public static class FilePath {
+        public static void main(String[] args) {
+        }
     }
 }

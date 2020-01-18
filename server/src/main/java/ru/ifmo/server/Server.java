@@ -3,15 +3,13 @@ package ru.ifmo.server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.ifmo.server.util.Utils;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,6 +56,7 @@ public class Server implements Closeable {
     private static final char HEADER_VALUE_SEPARATOR = ':';
     private static final char SPACE = ' ';
     private static final int READER_BUF_SIZE = 1024;
+    private static HashMap<String, String> mimeMap = new HashMap<>();
 
     private final ServerConfig config;
     private ServerSocket socket;
@@ -101,6 +100,7 @@ public class Server implements Closeable {
      * @see ServerConfig
      */
     public static Server start(ServerConfig config) {
+
         if (config == null)
             config = new ServerConfig();
 
@@ -237,7 +237,7 @@ public class Server implements Closeable {
 
         Handler handler = config.handler(req.getPath());
         Response resp = new Response(sock);
-        // This block doesn't work!
+
         if (handler != null) {
             try {
                 handler.handle(req, resp);
@@ -250,9 +250,11 @@ public class Server implements Closeable {
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        } else
+
+        } else if (!tryLoadFile(req, resp)) {
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
+        }
     }
 
     private Request parseRequest(Socket socket) throws IOException, URISyntaxException {
@@ -387,7 +389,6 @@ public class Server implements Closeable {
                     sock.setSoTimeout(config.getSocketTimeout());
 
                     processConnection(sock);
-
                 } catch (Exception e) {
                     if (!Thread.currentThread().isInterrupted())
                         LOG.error("Error accepting connection", e);
@@ -395,4 +396,100 @@ public class Server implements Closeable {
             }
         }
     }
+
+    /**
+     * HashMap for mime types
+     */
+    private static void setMime() {
+        mimeMap.put(".txt", MIME_TEXT_PLAIN);
+        mimeMap.put(".htm", MIME_TEXT_HTML);
+        mimeMap.put(".js", MIME_APPLICATION_JS);
+        mimeMap.put(".gif", MIME_IMAGE_GIF);
+        mimeMap.put(".png", MIME_IMAGE_PNG);
+        mimeMap.put(".jpeg", MIME_IMAGE_JPEG);
+        mimeMap.put(".pdf", MIME_APPLICATION_PDF);
+        mimeMap.put(".docx", MIME_APPLICATION_MSWORD);
+        mimeMap.put(".xls", MIME_APPLICATION_MSEXCEL);
+
+    }
+
+    private String mimeGetter(String extension) {
+        setMime();
+        try {
+            for (Map.Entry<String, String> entry : mimeMap.entrySet()) {
+                if (extension.contains(entry.getKey())) {
+                    return entry.getValue();
+                }
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
+        return String.valueOf(SC_BAD_REQUEST);
+
+    }
+
+    private String getFileExtension(String str) {
+        int index = str.indexOf(".");
+        return index == -1 ? null : str.substring(index);
+    }
+
+    private String findMime(File file) {
+
+        return mimeGetter(getFileExtension(file.getName()));
+
+    }
+/**
+ * Support for war directory with loading static content (.txt, .html, js, .png, etc.).
+ * Set properly headers, e.g. Content-Type and Content-Length. Content-Type detect by file extension.
+ */
+    private boolean tryLoadFile(Request req, Response resp) throws IOException {
+        final File workDirectory = config.getWorkDirectory();
+
+        if (workDirectory != null) {
+            File file = new File(workDirectory, req.getPath());
+
+            if (!file.exists()) {
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("File {} not found", file.getAbsolutePath());
+                }
+
+                return false;
+            }
+
+            final String mime = findMime(file);
+
+            if (LOG.isDebugEnabled())
+                LOG.debug("Loading file = {}, length = {}, mime = {}", file.getAbsolutePath(), file.length(), mime);
+
+            final String head = "HTTP/1.0 200 OK" + CRLF +
+                    CONTENT_TYPE + ": " + mime + "; charset=utf-8" + CRLF +
+                    CONTENT_LENGTH + ": " + file.length() + CRLF + CRLF;
+
+            // Will be closed on socket close.
+            final OutputStream out = resp.socket.getOutputStream();
+
+            out.write(head.getBytes(StandardCharsets.UTF_8));
+
+            try (final InputStream in = new FileInputStream(file)) {
+                final byte[] buf = new byte[1024];
+
+                int len;
+                while ((len = in.read(buf)) != -1) {
+                    out.write(buf, 0, len);
+                }
+
+                out.flush();
+            }
+
+            return true;
+        }
+
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Working directory was not set");
+        }
+
+        return false;
+    }
+
+
 }
