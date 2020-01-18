@@ -20,6 +20,50 @@ public class Config implements IConfig {
     private String patternReadHeadHost;
     private Pattern pattern;
     private String firstGroup;
+    private String typeKeyManager;
+    private String pathFileKeyStore;
+    private String passwordKeyStore;
+    private String typeSSL;
+
+    @Override
+    public String getTypeSSL() {
+        return typeSSL;
+    }
+
+    @Override
+    public void setTypeSSL(String typeSSL) {
+        this.typeSSL = typeSSL;
+    }
+
+    @Override
+    public String getTypeKeyManager() {
+        return typeKeyManager;
+    }
+
+    @Override
+    public String getPathFileKeyStore() {
+        return pathFileKeyStore;
+    }
+
+    @Override
+    public String getPasswordKeyStore() {
+        return passwordKeyStore;
+    }
+
+    @Override
+    public void setTypeKeyManager(String typeKeyManager) {
+        this.typeKeyManager = typeKeyManager;
+    }
+
+    @Override
+    public void setPathFileKeyStore(String pathFileKeyStore) {
+        this.pathFileKeyStore = pathFileKeyStore;
+    }
+
+    @Override
+    public void setPasswordKeyStore(String passwordKeyStore) {
+        this.passwordKeyStore = passwordKeyStore;
+    }
 
     public Map<String, String> getAtt() {
         return att;

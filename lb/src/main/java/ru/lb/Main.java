@@ -38,9 +38,14 @@ public class Main {
                         config.addIPserver("fasie.ru", new InetSocketAddress("185.9.147.48", 80));
                         config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true,0));
                         config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 80), false,0));
+                        config.setTypeKeyManager("");
                         config.setCountBuf(512);
                         config.setSizeBuf(1024);
                         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
+                        config.setTypeSSL("TLS");
+                        config.setTypeKeyManager("PKCS12");
+                        config.setPathFileKeyStore("C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12");
+                        config.setPasswordKeyStore("changeit");
 
                         try {
                             Files.createFile(path);
@@ -52,7 +57,6 @@ public class Main {
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("Ошибка создания файла конфигурации.", e);
                             }
-                            e.printStackTrace();
                         }
                         System.exit(0);
                         break;
@@ -95,7 +99,9 @@ public class Main {
 
 
             } catch (IOException e) {
-                e.printStackTrace();
+                if(LOG.isErrorEnabled()){
+                    LOG.error("Ошибка: ", e);
+                }
             }
         }
     }

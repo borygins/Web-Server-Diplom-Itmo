@@ -44,8 +44,8 @@ public class ServerSSL extends Server {
         char[] pass = "changeit".toCharArray();
 
         try {
-            context = SSLContext.getInstance("TLS");
-            context.init(createKeyManagers("PKCS12", "C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12", "changeit", "changeit"), null, new SecureRandom());
+            context = SSLContext.getInstance(config.getTypeSSL());
+            context.init(createKeyManagers(config.getTypeKeyManager(), config.getPathFileKeyStore(), config.getPasswordKeyStore(), config.getPasswordKeyStore()), null, new SecureRandom());
 
             dummySession = context.createSSLEngine().getSession();
 
@@ -54,7 +54,9 @@ public class ServerSSL extends Server {
 
             dummySession.invalidate();
         } catch (Exception e) {
-            e.printStackTrace();
+            if (getLogger().isErrorEnabled()){
+                getLogger().error("", e);
+            }
         }
     }
 
@@ -139,7 +141,9 @@ public class ServerSSL extends Server {
                     getLogger().debug("Соединение закрыто, сбой в TLS.");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            if(getLogger().isErrorEnabled()) {
+                getLogger().error("", e);
+            }
         }
         return resultCheckSSL;
     }
@@ -186,8 +190,9 @@ public class ServerSSL extends Server {
             }
 
         } catch (SSLException e) {
-
-            e.printStackTrace();
+            if(getLogger().isErrorEnabled()) {
+                getLogger().error("SS", e);
+            }
         }
 
         return ServerWriteStatus.EXIT;
@@ -316,6 +321,7 @@ public class ServerSSL extends Server {
                         try {
                             engine.closeInbound();
                         } catch (SSLException e) {
+                            if(getLogger().isErrorEnabled())
                             getLogger().error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
                         }
                         engine.closeOutbound();
@@ -329,6 +335,7 @@ public class ServerSSL extends Server {
                         peerNetData.compact();
                         handshakeStatus = result.getHandshakeStatus();
                     } catch (SSLException sslException) {
+                        if(getLogger().isErrorEnabled())
                         getLogger().error("A problem was encountered while processing the data that caused the SSLEngine to abort. Will try to properly close connection...");
                         engine.closeOutbound();
                         handshakeStatus = engine.getHandshakeStatus();
@@ -367,6 +374,7 @@ public class ServerSSL extends Server {
                         result = engine.wrap(myAppData, myNetData);
                         handshakeStatus = result.getHandshakeStatus();
                     } catch (SSLException sslException) {
+                        if(getLogger().isErrorEnabled())
                         getLogger().error("A problem was encountered while processing the data that caused the SSLEngine to abort. Will try to properly close connection...");
                         engine.closeOutbound();
                         handshakeStatus = engine.getHandshakeStatus();

@@ -25,4 +25,15 @@ public interface IConfig {
 
     void setPatternReadHeadHost(String pattern);
     Matcher getMatcher(String str);
+
+    String getTypeSSL();
+    String getTypeKeyManager();
+    String getPathFileKeyStore();
+    String getPasswordKeyStore();
+
+    void setTypeKeyManager(String typeKeyManager);
+    void setPathFileKeyStore(String pathFileKeyStore);
+    void setPasswordKeyStore(String passwordKeyStore);
+    void setTypeSSL(String typeSSL);
+
 }

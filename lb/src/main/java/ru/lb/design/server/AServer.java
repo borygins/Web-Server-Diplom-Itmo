@@ -84,7 +84,7 @@ public abstract class AServer implements IServer {
             }
         } catch (IOException e) {
             if (getLogger().isDebugEnabled())
-                getLogger().debug("Unable to setup environment");
+                getLogger().debug("Unable to setup environment", e);
         }
 
     }
@@ -142,8 +142,7 @@ public abstract class AServer implements IServer {
             }
         } catch (IOException e) {
             if (getLogger().isErrorEnabled()) {
-                getLogger().error("Error during select()");
-                e.printStackTrace();
+                getLogger().error("Error during select()", e);
             }
         }
     }
@@ -188,8 +187,7 @@ public abstract class AServer implements IServer {
 
         } catch (IOException e) {
             if (getLogger().isErrorEnabled()) {
-                getLogger().error("Unable to use channel");
-                e.printStackTrace();
+                getLogger().error("Unable to use channel", e);
             }
             this.close(key, null);
         }
@@ -308,7 +306,8 @@ public abstract class AServer implements IServer {
             sharedBuffer.rewind();
             this.addBuffer(idConnect, sharedBuffer);
         } catch (IOException e) {
-            e.printStackTrace();
+            if(getLogger().isErrorEnabled())
+                getLogger().error("Ошибка создания соедениения с сервером.",e);
             idConnect.addBufFirst(sharedBuffer);
             try {
                 if(idConnect.isServer())
@@ -316,7 +315,8 @@ public abstract class AServer implements IServer {
                         createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
                 return ServerWriteStatus.EXIT;
             } catch (IOException ex) {
-                ex.printStackTrace();
+                if(getLogger().isErrorEnabled())
+                    getLogger().error("Ошибка создания повторного соедениения с сервером",e);
             }
         }
 
@@ -340,8 +340,7 @@ public abstract class AServer implements IServer {
                 getLogger().info("Установлено соединение с севрером: " + socketChannel + ", селектор: " + key.selector()+ ", поток: " + Thread.currentThread().getName());
         } catch (IOException e) {
             if (getLogger().isErrorEnabled()) {
-                getLogger().error("Err connect..." + key.channel().toString());
-                e.printStackTrace();
+                getLogger().error("Err connect..." + key.channel().toString(), e);
             }
             this.close(key, idConnect);
 
@@ -355,8 +354,7 @@ public abstract class AServer implements IServer {
 
             } catch (IOException | NotHostException ex) {
                 if (getLogger().isErrorEnabled()) {
-                    getLogger().error("Err connect..." + key.channel().toString());
-                    e.printStackTrace();
+                    getLogger().error("Err connect..." + key.channel().toString(), e);
                 }
             }
         }
@@ -393,8 +391,7 @@ public abstract class AServer implements IServer {
                 idConnect.setSelectionKey(null);
             } catch (IOException e) {
                 if (getLogger().isErrorEnabled()) {
-                    getLogger().error("Ошибка разрыва соединения: " + key.channel().toString());
-                    e.printStackTrace();
+                    getLogger().error("Ошибка разрыва соединения: " + key.channel().toString(), e);
                 }
             }
         }

@@ -59,16 +59,14 @@ public class Server extends AServer {
 
         } catch (IOException | RuntimeException e) {
             if (LOG.isErrorEnabled()) {
-                LOG.error("Error read bytes");
-                e.printStackTrace();
+                LOG.error("Error read bytes", e);
             }
 
             this.addBuffer(idConnect, sharedBuffer);
             this.close(key, idConnect);
         } catch (NotHostException e){
             if (LOG.isErrorEnabled()) {
-                LOG.error("Хост не был найден в заголовках.");
-                e.printStackTrace();
+                LOG.error("Хост не был найден в заголовках.", e);
             }
             this.addBuffer(idConnect, sharedBuffer);
             this.close(key, idConnect);
@@ -96,7 +94,6 @@ public class Server extends AServer {
         }
 
         if (idConnect.isStopConnect()) {
-
             this.close(key, idConnect);
         }
     }

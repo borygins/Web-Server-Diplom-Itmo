@@ -6,6 +6,10 @@
   "sizeBuf" : 1024,
   "countBuf" : 512,
   "patternReadHeadHost" : "\\r\\nHost: (.+)(:|\\r\\n)",
+  "typeKeyManager" : "PKCS12",
+  "pathFileKeyStore" : "C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12",
+  "passwordKeyStore" : "changeit",
+  "typeSSL" : "TLS",
   "iplb" : [ {
     "ipServer" : "localhost:443",
     "ssl" : true,

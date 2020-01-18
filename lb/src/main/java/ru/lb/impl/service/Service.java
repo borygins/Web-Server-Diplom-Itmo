@@ -1,7 +1,10 @@
 package ru.lb.impl.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.lb.design.config.IConfig;
 import ru.lb.design.service.IService;
+import ru.lb.impl.server.Server;
 
 import javax.imageio.plugins.jpeg.JPEGImageReadParam;
 import java.io.IOException;
@@ -18,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Service implements IService {
-
+    private static final Logger LOG = LoggerFactory.getLogger(Service.class);
     private IConfig config;
     private Map<String, List<InetSocketAddress>> tempIP = new HashMap<>();
 
@@ -51,8 +54,9 @@ public class Service implements IService {
             Thread.sleep(5000);
 
             }catch (InterruptedException e){
+                if(LOG.isErrorEnabled())
+                    LOG.error("", e);
                 Thread.currentThread().interrupt();
-                e.printStackTrace();
             }
         }
 
@@ -73,7 +77,8 @@ public class Service implements IService {
                         addGroupHost(tempH.getKey(), address);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    if(LOG.isErrorEnabled())
+                        LOG.error("", e);
                 }
             }
         }
@@ -93,7 +98,8 @@ public class Service implements IService {
                         addTempHost(tempH.getKey(), address);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    if(LOG.isErrorEnabled())
+                        LOG.error("", e);
                     addTempHost(tempH.getKey(), address);
                 }
             }

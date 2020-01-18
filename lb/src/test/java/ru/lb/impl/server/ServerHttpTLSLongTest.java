@@ -50,6 +50,10 @@ class ServerHttpTLSLongTest {
         config.setSizeBuf(1024);
         config.setIPserver(new ConfigIPServer(new InetSocketAddress("localhost", 443), true,0));
         config.setPatternReadHeadHost("\\r\\nHost: (.+)(:|\\r\\n)");
+        config.setTypeSSL("TLS");
+        config.setTypeKeyManager("PKCS12");
+        config.setPathFileKeyStore("C:\\Users\\kozlo\\IdeaProjects\\Web-Server-Diplom-Itmo\\lb\\localhost.p12");
+        config.setPasswordKeyStore("changeit");
 
         for (int i = 0; i < 2; i++) {
             HttpServer httpServer = HttpServer.create();
