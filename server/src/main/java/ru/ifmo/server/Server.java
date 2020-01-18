@@ -2,6 +2,7 @@ package ru.ifmo.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.ifmo.server.annotation.Uri;
 import ru.ifmo.server.util.Utils;
 
 import java.io.Closeable;
@@ -10,13 +11,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.Map;
+import java.lang.reflect.Modifier;
+import java.net.*;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,7 +65,8 @@ public class Server implements Closeable {
 
     private ExecutorService acceptorPool;
 
-    // private Map<String, ReflectiveHandler> reflectiveHandlers;
+    //  todo
+    private static Map<String, ReflectiveHandler> reflectiveHandlers = new HashMap<>();
 
     private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
@@ -94,7 +92,9 @@ public class Server implements Closeable {
 
             Server server = new Server(config);
 
-//            initReflectiveHandlers();
+//      todo
+
+            server.initReflectiveHandlers(config.getClasses());
             server.openConnection();
             server.startAcceptor();
 
@@ -105,8 +105,40 @@ public class Server implements Closeable {
         }
     }
 
-    private static void initReflectiveHandlers() {
-        // todo fill reflectiveHandlers
+    private static void initReflectiveHandlers(Collection<Class<?>> classes) {
+        Collection<Class<?>> classList = new ArrayList<>(classes);
+
+        for (Class<?> c : classList) {
+            try {
+                String name = c.getName();
+                Class<?> cls = Class.forName(name);
+
+                for (Method method : cls.getDeclaredMethods()) {
+                    Uri an = method.getAnnotation(Uri.class);
+                    if (an != null) {
+                        Class<?>[] params = method.getParameterTypes();
+                        Class<?> methodType = method.getReturnType();
+
+                        if (params.length == 2 && methodType.equals(void.class) && Modifier.isPublic(method.getModifiers())
+                                && params[0].equals(Request.class) && params[1].equals(Response.class)) {
+                            String path = an.value();
+
+                            EnumSet<HttpMethod> set = EnumSet.copyOf(Arrays.asList(an.method()));
+
+                            ReflectiveHandler reflectiveHandler = new ReflectiveHandler(cls.newInstance(), method, set);
+                            reflectiveHandlers.put(path, reflectiveHandler);
+                        } else {
+                            throw new ServerException("Invalid @URL annotated method: " + c.getSimpleName() + "." + method.getName() + "(). "
+                                    + "Valid method: must be public void and accept only two arguments: Request and Response." + '\n' +
+                                    "Example: public void helloWorld(Request request, Response Response");
+                        }
+
+                    }
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new ServerException("Unable initialize @URL annotated handlers. ", e);
+            }
+        }
     }
 
     private void openConnection() throws IOException {
@@ -177,7 +209,9 @@ public class Server implements Closeable {
                 respond(SC_SERVER_ERROR, "Server Error", htmlMessage(SC_SERVER_ERROR + " Server error"),
                         sock.getOutputStream());
             }
-        } /*else if (reflectiveHandlers.containsKey(req.getPath())) {
+        }
+        //todo
+        /*else if (reflectiveHandlers.containsKey(req.getPath())) {
             final ReflectiveHandler hnd = reflectiveHandlers.get(req.getPath());
 
             if (hnd.method == req.method) {
@@ -188,7 +222,8 @@ public class Server implements Closeable {
                     // 500
                 }
             } // else 404
-        }*/ else
+        }*/
+        else
             respond(SC_NOT_FOUND, "Not Found", htmlMessage(SC_NOT_FOUND + " Not found"),
                     sock.getOutputStream());
     }
@@ -197,7 +232,8 @@ public class Server implements Closeable {
         InputStreamReader reader = new InputStreamReader(socket.getInputStream());
 
         Request req = new Request(socket);
-        StringBuilder sb = new StringBuilder(READER_BUF_SIZE); // TODO
+        StringBuilder sb = new StringBuilder(READER_BUF_SIZE);
+        /* TODO */
         int contentLen = -1;
         while (readLine(reader, sb, contentLen) > 0) {
             if (req.method == null)
@@ -357,8 +393,39 @@ public class Server implements Closeable {
     }
 
     private static class ReflectiveHandler {
-        private HttpMethod method;
+        //TODO
+        private Method method;
         private Object obj;
-        private Method reflMethod;
+        private EnumSet<HttpMethod> methods;
+
+        public ReflectiveHandler(Object obj, Method method, EnumSet<HttpMethod> methods) {
+            this.obj = obj;
+            this.method = method;
+            this.methods = methods;
+        }
+
+        public Method getMethod() {
+            return method;
+        }
+
+        public void setMethod(Method method) {
+            this.method = method;
+        }
+
+        public Object getObj() {
+            return obj;
+        }
+
+        public void setObj(Object obj) {
+            this.obj = obj;
+        }
+
+        public EnumSet<HttpMethod> getMethods() {
+            return methods;
+        }
+
+        public void setMethods(EnumSet<HttpMethod> methods) {
+            this.methods = methods;
+        }
     }
 }

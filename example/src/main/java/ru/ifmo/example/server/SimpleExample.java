@@ -18,17 +18,9 @@ public class SimpleExample {
 
         // Define config with request handlers
         ServerConfig config = new ServerConfig()
+                .addClass(MyController.class)
                 .addHandler("/info.html", printHandler)
-                .addHandler("/info", printHandler)
-                .addHandler(  new Handler() {
-                    @Override
-                    @RequestType(path = "/index", method = {HttpMethod.GET, HttpMethod.POST})
-                    public void handle(Request request, Response response) throws Exception {
-                        Writer writer = new OutputStreamWriter(response.getOutputStream());
-                        writer.write(Http.OK_HEADER + "Hello World!");
-                        writer.flush();
-                    }
-                });
+                .addHandler("/info", printHandler);
 
         // Start server
         @SuppressWarnings("unused")
