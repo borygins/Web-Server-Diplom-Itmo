@@ -120,7 +120,7 @@ public class Response {
     public void redirect(String location) {
         this.location = location;
         setStatusCode(SC_REDIRECT);
-        setHeader(location , "http://localhost:8080/test");
+        setHeader("Location" , location);
     }
 
     public String getLocation() {

@@ -196,13 +196,11 @@ public class   Server implements Closeable {
         if (handler != null) {
             try {
                 handler.handle(req, resp);
-
                 if(resp.getLocation()!=null){
                     resp.setStatusCode(SC_REDIRECT);
-                    resp.redirect("/location");
+                    resp.redirect(resp.getLocation());
                 }
-
-                //Create response
+                                //Create response
                 responseExecutor(resp);
             } catch (Exception e) {
                 if (LOG.isDebugEnabled())
