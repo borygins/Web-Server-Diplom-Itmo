@@ -138,8 +138,17 @@ public class IdConnect implements IIdConnect {
     }
 
     @Override
+    public void addBufFirst(ByteBuffer buffer) {
+        this.buffer.add(0, buffer);
+    }
+
+    @Override
     public List<ByteBuffer> getAllBuf() {
         return this.buffer;
     }
 
+    @Override
+    public int countBuff() {
+        return this.buffer.size();
+    }
 }

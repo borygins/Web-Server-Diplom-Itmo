@@ -30,7 +30,7 @@ public class HistoryQuery implements IHistoryQuery {
     @Override
     public String getHostConnection(ByteBuffer buf) throws NotHostException {
         buf.flip();
-        byte[] b = new byte[config.getSizeBuf()];
+        byte[] b = new byte[buf.limit()];
         buf.get(b, 0, buf.limit());
         Matcher matcher = config.getMatcher(new String(b, 0, buf.limit()));
         if (matcher.find())

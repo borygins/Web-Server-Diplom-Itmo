@@ -15,16 +15,15 @@ import ru.lb.impl.config.ConfigIPServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.URI;
+import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -139,6 +138,7 @@ class ServerHttpMultiCloseConnectTest {
         assertEquals(true, response2.body().toLowerCase().contains("validhead=1241"));
     }
 
+
     @AfterEach
     void tearDown() {
         for (HttpServer httpServer : httpServers)
@@ -146,4 +146,6 @@ class ServerHttpMultiCloseConnectTest {
         for (Thread lbServer : lbServers)
             lbServer.interrupt();
     }
+
+
 }

@@ -10,6 +10,8 @@ public interface IIdConnect {
 
     List<ByteBuffer> getAllBuf();
     void addBuf(ByteBuffer buffer);
+    void addBufFirst(ByteBuffer buffer);
+    int countBuff();
     ByteBuffer getAndRemoveBuf();
 
     void setStopConnect(boolean stopConnect);

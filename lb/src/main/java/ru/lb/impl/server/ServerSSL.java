@@ -24,6 +24,9 @@ import java.nio.channels.SocketChannel;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,7 +36,7 @@ public class ServerSSL extends Server {
 
     private SSLContext context;
     private SSLSession dummySession;
-    protected ArrayList<ByteBuffer> bufNet;
+    protected LinkedList<ByteBuffer> bufNet;
 
     public ServerSSL(boolean startServer, IConfig config, ConfigIPServer configIPServer) {
         super(startServer, config, configIPServer, false);
@@ -46,8 +49,6 @@ public class ServerSSL extends Server {
 
             dummySession = context.createSSLEngine().getSession();
 
-            myNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
-            peerNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
 
             this.createBuf(config.getCountBuf(), 0);
 
@@ -60,8 +61,8 @@ public class ServerSSL extends Server {
 
     @Override
     public void createBuf(int count, int bufSize) {
-        this.buf = new ArrayList<>();
-        this.bufNet = new ArrayList<>();
+        this.buf = new LinkedList<>();
+        this.bufNet = new LinkedList<>();
         for (int i = 0; i < count; i++) {
             this.buf.add(ByteBuffer.allocate(dummySession.getApplicationBufferSize()));
             this.bufNet.add(ByteBuffer.allocate(dummySession.getPacketBufferSize()));
@@ -70,44 +71,42 @@ public class ServerSSL extends Server {
 
     @Override
     public ByteBuffer getBuffer(IIdConnect idConnect) {
-        ByteBuffer buf = null;
-        if(idConnect.isClient()) {
-            buf = (this.bufNet.size() > 0) ? this.bufNet.remove(this.bufNet.size() - 1) : ByteBuffer.allocate(dummySession.getPacketBufferSize());
-
-        } else {
-            buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(dummySession.getApplicationBufferSize());
-        }
-        buf.clear();
-        return buf;
+        return getBuffer(idConnect.isClient());
     }
 
     public ByteBuffer getBuffer(boolean idConnect) {
         ByteBuffer buf = null;
-        if(idConnect) {
-            buf = (this.bufNet.size() > 0) ? this.bufNet.remove(this.bufNet.size() - 1) : ByteBuffer.allocate(dummySession.getPacketBufferSize());
+        if (idConnect) {
+//            buf = (this.bufNet.size() > 0) ? this.bufNet.remove(this.bufNet.size() - 1) : ByteBuffer.allocate(dummySession.getPacketBufferSize());
 
+            try {
+                buf = this.bufNet.removeLast();
+            }catch (NoSuchElementException e){
+                buf = ByteBuffer.allocate(dummySession.getPacketBufferSize());
+            }
         } else {
-            buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+//            buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+            try {
+                buf = this.buf.removeLast();
+            }catch (NoSuchElementException e){
+                buf = ByteBuffer.allocate(dummySession.getApplicationBufferSize());
+            }
         }
         buf.clear();
         return buf;
     }
 
     public void addBuffer(boolean idConnect, ByteBuffer byteBuffer) {
-        if(idConnect) {
-            this.bufNet.add(byteBuffer);
+        if (idConnect) {
+            this.bufNet.addFirst(byteBuffer);
         } else {
-            this.buf.add(byteBuffer);
+            this.buf.addFirst(byteBuffer);
         }
     }
 
     @Override
     public void addBuffer(IIdConnect idConnect, ByteBuffer byteBuffer) {
-        if(idConnect.isClient()) {
-            this.bufNet.add(byteBuffer);
-        } else {
-            this.buf.add(byteBuffer);
-        }
+        this.addBuffer(idConnect.isClient(), byteBuffer);
     }
 
     @Override
@@ -150,7 +149,10 @@ public class ServerSSL extends Server {
         SSLEngine engine = idConnect.getSSLEngine();
 
         if (idConnect.isServer() && sharedBuffer != null) {
-            sharedBuffer.position((sharedBuffer.get() == 23) ? 5 : 0);
+
+            if (sharedBuffer.position() < sharedBuffer.limit())
+                sharedBuffer.position((sharedBuffer.get() == 23) ? 5 : 0);
+
             return super.write(key, sharedBuffer, socketChannel, idConnect);
         } else if (sharedBuffer == null || sharedBuffer.limit() == sharedBuffer.capacity()) {
             return super.write(key, sharedBuffer, socketChannel, idConnect);
@@ -160,23 +162,27 @@ public class ServerSSL extends Server {
 
             // The loop has a meaning for (outgoing) messages larger than 16KB.
             // Every wrap call will remove 16KB from the original message and send it to the remote peer.
-            ByteBuffer myNetData = this.getBuffer(idConnect.getInverseConnect());
-            SSLEngineResult result = engine.wrap(sharedBuffer, myNetData);
-            switch (result.getStatus()) {
-                case OK:
-                    myNetData.flip();
-                    super.write(key, myNetData, socketChannel, idConnect);
-                    break;
-                case BUFFER_OVERFLOW:
-                    myNetData = enlargePacketBuffer(engine, myNetData);
-                    break;
-                case BUFFER_UNDERFLOW:
-                    throw new SSLException("Buffer underflow occured after a wrap. I don't think we should ever get here.");
-                case CLOSED:
-                    close(key);
-                    return ServerWriteStatus.EXIT;
-                default:
-                    throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
+            ByteBuffer myNetData = this.getBuffer(idConnect);
+            while (sharedBuffer.hasRemaining()) {
+                SSLEngineResult result = null;
+
+                result = engine.wrap(sharedBuffer, myNetData);
+                switch (result.getStatus()) {
+                    case OK:
+                        myNetData.flip();
+                        super.write(key, myNetData, socketChannel, idConnect);
+                        break;
+                    case BUFFER_OVERFLOW:
+                        myNetData = enlargePacketBuffer(engine, myNetData);
+                        break;
+                    case BUFFER_UNDERFLOW:
+                        throw new SSLException("Buffer underflow occured after a wrap. I don't think we should ever get here.");
+                    case CLOSED:
+                        close(key, idConnect);
+                        return ServerWriteStatus.EXIT;
+                    default:
+                        throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
+                }
             }
 
         } catch (SSLException e) {
@@ -210,7 +216,7 @@ public class ServerSSL extends Server {
                     case CLOSED:
                         if (getLogger().isDebugEnabled())
                             getLogger().debug("Client wants to close connection...");
-                        close(key);
+                        close(key, idConnect);
                         return ServerReadStatus.EXIT;
                     default:
                         throw new IllegalStateException("Invalid SSL status: " + result.getStatus());
@@ -220,7 +226,7 @@ public class ServerSSL extends Server {
         } else if (bytes < 0) {
             if (getLogger().isErrorEnabled())
                 getLogger().error("Received end of stream. Will try to close connection with client...");
-            handleEndOfStream(key, engine);
+            handleEndOfStream(key, idConnect, engine);
         }
         return ServerReadStatus.EXIT;
     }
@@ -231,14 +237,6 @@ public class ServerSSL extends Server {
      */
     protected ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    /**
-     * Will contain this peer's application data in plaintext, that will be later encrypted
-     * using {@link SSLEngine#wrap(ByteBuffer, ByteBuffer)} and sent to the other peer. This buffer can typically
-     * be of any size, as long as it is large enough to contain this peer's outgoing messages.
-     * If this peer tries to send a message bigger than buffer's capacity a {@link BufferOverflowException}
-     * will be thrown.
-     */
-    protected ByteBuffer myAppData;
 
     /**
      * Will contain this peer's encrypted data, that will be generated after {@link SSLEngine#wrap(ByteBuffer, ByteBuffer)}
@@ -248,12 +246,6 @@ public class ServerSSL extends Server {
      */
     protected ByteBuffer myNetData;
 
-    /**
-     * Will contain the other peer's (decrypted) application data. It must be large enough to hold the application data
-     * from any peer. Can be initialized with {@link SSLSession#getApplicationBufferSize()} for an estimation
-     * of the other peer's application data and should be enlarged if this size is not enough.
-     */
-    protected ByteBuffer peerAppData;
 
     /**
      * Will contain the other peer's encrypted data. The SSL/TLS protocols specify that implementations should produce packets containing at most 16 KB of plaintext,
@@ -305,8 +297,8 @@ public class ServerSSL extends Server {
         // to be used for the handshake, while keeping client's buffers at the same size.
         int appBufferSize = engine.getSession().getApplicationBufferSize();
 
-        myNetData.clear();
-        peerNetData.clear();
+        myNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
+        peerNetData = ByteBuffer.allocate(dummySession.getPacketBufferSize());
 
         ByteBuffer myAppData = this.getBuffer(false);
         ByteBuffer peerAppData = this.getBuffer(false);
@@ -494,7 +486,7 @@ public class ServerSSL extends Server {
     }
 
     @Override
-    public void close(SelectionKey key) {
+    public void close(SelectionKey key, IIdConnect iIdConnect) {
 
         IIdConnect idConnect = (IIdConnect) key.attachment();
         if (idConnect.isClient()) {
@@ -511,7 +503,7 @@ public class ServerSSL extends Server {
                 }
             }
         }
-        super.close(key);
+        super.close(key, idConnect);
     }
 
     /**
@@ -523,13 +515,13 @@ public class ServerSSL extends Server {
      * @param engine - the engine used for encryption/decryption of the data exchanged between the two peers.
      * @throws IOException if an I/O error occurs to the socket channel.
      */
-    protected void handleEndOfStream(SelectionKey key, SSLEngine engine) throws IOException {
+    protected void handleEndOfStream(SelectionKey key, IIdConnect idConnect, SSLEngine engine) throws IOException {
         try {
             engine.closeInbound();
         } catch (Exception e) {
             getLogger().error("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
         }
-        close(key);
+        close(key, idConnect);
     }
 
     /**

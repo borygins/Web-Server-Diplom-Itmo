@@ -25,7 +25,7 @@ public abstract class AServer implements IServer {
     protected Selector selector;
     protected ServerSocket serverSocket;
     protected final boolean startServer;
-    protected ArrayList<ByteBuffer> buf;
+    protected LinkedList<ByteBuffer> buf;
     protected final Map<String, Queue<Selector>> queSelector = new HashMap<>();
     protected final String typeClass;
     protected static IHistoryQuery historyQuery;
@@ -148,14 +148,21 @@ public abstract class AServer implements IServer {
 
     @Override
     public ByteBuffer getBuffer(IIdConnect idConnect) {
-        ByteBuffer buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+//        ByteBuffer buf = (this.buf.size() > 0) ? this.buf.remove(this.buf.size() - 1) : ByteBuffer.allocate(config.getSizeBuf());
+        ByteBuffer buf = null;
+        try {
+            buf = this.buf.removeLast();
+        }catch (NoSuchElementException e){
+            buf = ByteBuffer.allocate(config.getSizeBuf());
+        }
+
         buf.clear();
         return buf;
     }
 
     @Override
     public void addBuffer(IIdConnect idConnect, ByteBuffer byteBuffer) {
-        this.buf.add(byteBuffer);
+        this.buf.addFirst(byteBuffer);
     }
 
     /**
@@ -183,7 +190,7 @@ public abstract class AServer implements IServer {
                 getLogger().error("Unable to use channel");
                 e.printStackTrace();
             }
-            this.close(key);
+            this.close(key, null);
         }
 
     }
@@ -269,11 +276,10 @@ public abstract class AServer implements IServer {
         }
 
         if (closeSelectionKey) {
-            idConnect.getInverseConnect().setStopConnect(true);
             if (idConnect.getInverseConnect() != null && idConnect.getInverseConnect().getSelectionKey() != null)
                 idConnect.getInverseConnect().getSelectionKey().interestOps(socketChannel.validOps());
             this.addBuffer(idConnect, sharedBuffer);
-            this.close(key);
+            this.close(key, idConnect);
             return ServerReadStatus.EXIT;
         }
 
@@ -308,10 +314,12 @@ public abstract class AServer implements IServer {
             this.addBuffer(idConnect, sharedBuffer);
         } catch (IOException e) {
             e.printStackTrace();
+            idConnect.addBufFirst(sharedBuffer);
             try {
                 if(idConnect.isServer())
                 idConnect.setSelectionKey(
                         createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
+                return ServerWriteStatus.EXIT;
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -340,7 +348,7 @@ public abstract class AServer implements IServer {
                 getLogger().error("Err connect..." + key.channel().toString());
                 e.printStackTrace();
             }
-            this.close(key);
+            this.close(key, idConnect);
 
 //            SocketChannel writer = null;
             try {
@@ -352,7 +360,7 @@ public abstract class AServer implements IServer {
 //                writer.connect(idConnect.getHostConnection());
 //                writer.register(key.selector(), writer.validOps(), idConnect);
 
-                idConnect.getInverseConnect().setSelectionKey(
+                idConnect.setSelectionKey(
                         this.createConnectToServ(key.selector(), idConnect, idConnect.getHostConnection()));
 
             } catch (IOException | NotHostException ex) {
@@ -379,17 +387,21 @@ public abstract class AServer implements IServer {
      * @param key ключ из выборки селектора
      */
     @Override
-    public void close(SelectionKey key) {
+    public void close(SelectionKey key, IIdConnect idConnect) {
         //Закрываем соединение, вроде key.cancel(); делать не надо.
-        try {
-            SocketChannel sc = (SocketChannel) key.channel();
-            if (getLogger().isDebugEnabled())
-                getLogger().debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: " + Thread.currentThread().getName());
-            sc.close();
-        } catch (IOException e) {
-            if (getLogger().isErrorEnabled()) {
-                getLogger().error("Ошибка разрыва соединения: " + key.channel().toString());
-                e.printStackTrace();
+        if(idConnect == null || idConnect.isClient() || idConnect.countBuff() < 1) {
+            idConnect.getInverseConnect().setStopConnect(true);
+            try {
+                SocketChannel sc = (SocketChannel) key.channel();
+                if (getLogger().isDebugEnabled())
+                    getLogger().debug("Разорвано соединение с: " + sc.toString() + ", селектор: " + key.selector().toString() + ", поток: " + Thread.currentThread().getName());
+                sc.close();
+                idConnect.setSelectionKey(null);
+            } catch (IOException e) {
+                if (getLogger().isErrorEnabled()) {
+                    getLogger().error("Ошибка разрыва соединения: " + key.channel().toString());
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -407,7 +419,7 @@ public abstract class AServer implements IServer {
      */
     @Override
     public void createBuf(int count, int bufSize) {
-        this.buf = new ArrayList<>();
+        this.buf = new LinkedList<>();
         for (int i = 0; i < count; i++) {
             this.buf.add(ByteBuffer.allocate(bufSize));
         }

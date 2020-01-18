@@ -14,7 +14,7 @@ public interface IServer extends Runnable {
     void readable(SelectionKey key);
     void writable(SelectionKey key) throws IOException;
     void connectable(SelectionKey key);
-    void close(SelectionKey key);
+    void close(SelectionKey key, IIdConnect idConnect);
     void setConfig(IConfig config);
     void createBuf(int count, int bufSize);
     void setHistoryQuery(IHistoryQuery newHistoryQuery);
